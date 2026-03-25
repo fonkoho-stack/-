@@ -1,0 +1,9 @@
+{
+    "name": "export_ics",
+    "version": "1.0.0",
+    "description": "导出课表为 ICS 日历文件",
+    "main": "index.js",
+    "dependencies": {
+        "wx-server-sdk": "~2.6.3"
+    }
+}

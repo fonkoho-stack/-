@@ -1,0 +1,10 @@
+{
+    "name": "parse_schedule",
+    "version": "1.0.0",
+    "description": "解析课表 PDF 并存入云数据库",
+    "main": "index.js",
+    "dependencies": {
+        "wx-server-sdk": "~2.6.3",
+        "pdfjs-dist": "2.16.105"
+    }
+}

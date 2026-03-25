@@ -1,0 +1,157 @@
+<!--pages/schedule/schedule.wxml-->
+<view class="page">
+<!-- Pager Header / Mode Switcher -->
+  <view class="top-bar">
+    <view class="segment-control">
+      <view class="segment-item {{viewMode === 'today' ? 'active' : ''}}" bindtap="switchView" data-mode="today">今日</view>
+      <view class="segment-item {{viewMode === 'week' ? 'active' : ''}}" bindtap="switchView" data-mode="week">全周</view>
+    </view>
+  </view>
+
+  <!-- ===== 空状态：未上传课表 ===== -->
+  <view class="empty-state" wx:if="{{!hasData}}">
+    <view class="empty-state-inner">
+      <text class="empty-state-icon">📚</text>
+      <text class="empty-state-title">还没有课表数据</text>
+      <text class="empty-state-desc">上传你的课表 PDF，即可自动解析生成课程表</text>
+      <view class="empty-state-btn" bindtap="goToUpload">去上传课表</view>
+    </view>
+  </view>
+
+  <!-- TODAY VIEW -->
+  <view class="today-view" wx:if="{{hasData && viewMode === 'today'}}">
+    <view class="today-header">
+      <text class="today-title">{{todayDateStr}}</text>
+      <view class="today-tag">第{{realWeek}}周</view>
+    </view>
+
+    <!-- Hero Card: Next Event -->
+    <view class="hero-card" wx:if="{{nextEvent}}" bindtap="showDetail" data-event="{{nextEvent}}">
+      <view class="hero-bg-circle"></view>
+      <view class="hero-tag">下一节课</view>
+      <view class="hero-course">{{nextEvent.course_name}}</view>
+      <view class="hero-meta"><text class="icon">📍</text> <text>{{nextEvent.locStr}}</text></view>
+      <view class="hero-meta"><text class="icon">🕒</text> <text>{{nextEvent.timeStr}}</text></view>
+      <view class="hero-btn">查看详情</view>
+    </view>
+    
+    <view class="hero-card empty-hero" wx:if="{{!nextEvent}}">
+      <view class="hero-bg-icon">🏝️</view>
+      <view class="hero-tag">休息时间</view>
+      <view class="hero-course">今天没有更多课啦</view>
+      <view class="hero-meta">忙碌了一整周，去喝杯好茶放松一下吧～</view>
+    </view>
+
+    <view class="timeline-section" wx:if="{{todayEvents.length > 0}}">
+      <view class="section-title">今日日程</view>
+      
+      <view class="timeline-item" wx:for="{{todayEvents}}" wx:key="id" bindtap="showDetail" data-event="{{item}}">
+        <view class="time-col">
+          <text class="t-start">{{item.startStr}}</text>
+          <text class="t-dur">{{item.durationMinutes}}min</text>
+        </view>
+        <view class="line-col">
+          <view class="dot"></view>
+          <view class="line" wx:if="{{index < todayEvents.length - 1}}"></view>
+        </view>
+        <view class="card-col">
+          <view class="c-header">
+            <text class="c-title">{{item.course_name}}</text>
+            <text class="c-status {{item.status ? 'active' : ''}}" wx:if="{{item.status}}">{{item.status}}</text>
+          </view>
+          <view class="c-footer">
+            <text class="c-loc">{{item.statusIcon}} {{item.locStr}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+
+  <!-- WEEK GRID VIEW -->
+  <view class="week-view" wx:if="{{hasData && viewMode === 'week'}}">
+    <view class="pager-header">
+      <view class="week-pager">
+        <view class="pager-btn {{gridWeek <= 1 ? 'disabled' : ''}}" bindtap="prevWeek">
+          <text class="arrow">‹</text> 上一周
+        </view>
+        <text class="pager-current">第 <text class="week-num">{{gridWeek}}</text> 周</text>
+        <view class="pager-btn {{gridWeek >= 25 ? 'disabled' : ''}}" bindtap="nextWeek">
+          下一周 <text class="arrow">›</text>
+        </view>
+      </view>
+      <view class="reminder-badge" bindtap="trySilentSubscribe">
+        <text class="icon">🔔</text> <text class="count">{{subscriptionCount}}</text>
+      </view>
+    </view>
+
+    <view class="grid-hint">
+      <text class="icon">💡</text> 点击课程卡片可查看完整信息
+    </view>
+
+    <view class="grid-wrapper">
+      <scroll-view scroll-x scroll-y class="grid-scroll-area">
+        <view class="grid-table">
+          <view class="grid-header-row">
+            <view class="grid-corner">节次</view>
+            <view class="day-hd {{index+1 === currentDay ? 'today-hd' : ''}}" wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this">{{item}}</view>
+          </view>
+          <view class="grid-body-row">
+            <view class="period-col">
+              <view class="period-num" wx:for="{{12}}" wx:key="*this">{{index + 1}}</view>
+            </view>
+            <view class="events-canvas">
+              <view class="grid-bg">
+                <view class="bg-row" wx:for="{{12}}" wx:key="*this"></view>
+              </view>
+              <view class="grid-empty-overlay" wx:if="{{weekEvents.length === 0}}">
+                <text class="empty-icon">🍃</text>
+                <text class="empty-text">本周暂无课程安排</text>
+              </view>
+              <view class="event-card grad-{{item.colorIndex}}" 
+                    wx:for="{{weekEvents}}" wx:key="id"
+                    style="grid-column: {{item.day_of_week}}; grid-row: {{item.time.period_start}} / {{item.time.period_end + 1}};"
+                    bindtap="showDetail" data-event="{{item}}">
+                <text class="card-title">{{item.course_name}}</text>
+                <view class="card-meta">
+                  <view class="meta-row"><text class="meta-icon">🕒</text><text>{{item.timeStr}}</text></view>
+                  <view class="meta-row" wx:if="{{item.location.raw}}"><text class="meta-icon">📍</text><text class="truncate-text">{{item.locStr}}</text></view>
+                  <view class="meta-row" wx:if="{{item.teacher}}"><text class="meta-icon">👤</text><text class="truncate-text">{{item.teacher}}</text></view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ==================== Bottom Sheet Detail ==================== -->
+  <view class="overlay {{showDetailPopup ? 'show' : ''}}" bindtap="hideDetail">
+    <view class="bottom-sheet {{showDetailPopup ? 'show' : ''}}" catchtap="true">
+      <view class="sheet-drag-handle"></view>
+      <view class="sheet-header">
+        <text class="sheet-title">{{detailEvent.course_name}}</text>
+      </view>
+      <view class="sheet-content">
+        <view class="detail-row"><text class="icon">📅</text><text>{{detailEvent.dayName}} (第{{detailEvent.time.period_start}}-{{detailEvent.time.period_end}}节)</text></view>
+        <view class="detail-row"><text class="icon">🕒</text><text>{{detailEvent.timeStr}}</text></view>
+        <view class="detail-row" wx:if="{{detailEvent.location.raw}}"><text class="icon">📍</text><text>{{detailEvent.location.raw}}</text></view>
+        <view class="detail-row" wx:if="{{detailEvent.teacher}}"><text class="icon">👤</text><text>{{detailEvent.teacher}}</text></view>
+      </view>
+      
+      <!-- 证据链面板 -->
+      <view class="evidence-box">
+        <view class="evidence-title">解析证据溯源</view>
+        <view class="evidence-content">{{detailEvent.evidence.raw_text}}</view>
+      </view>
+
+      <view class="sheet-footer">
+        <button class="btn-delete" bindtap="deleteEvent">删除课程</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- Floating Msg Box component handles itself -->
+  <msg-box id="msgBox" customNav="{{false}}"></msg-box>
+</view>

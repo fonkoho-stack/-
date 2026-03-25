@@ -1,0 +1,5 @@
+{
+  "usingComponents": {
+    "msg-box": "/components/msg-box/msg-box"
+  }
+}

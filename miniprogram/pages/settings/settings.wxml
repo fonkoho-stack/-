@@ -1,0 +1,84 @@
+<!--pages/settings/settings.wxml-->
+<view class="page">
+  <view class="header">
+    <text class="title">设置</text>
+    <text class="subtitle">个性化您的课表提醒助手</text>
+  </view>
+
+  <view class="settings-list">
+    <!-- Group 1: 提醒通知 -->
+    <view class="group-title">提醒通知</view>
+    <view class="group-card">
+      <view class="cell">
+        <view class="cell-label-col">
+          <text class="cell-label">课前提醒</text>
+          <text class="cell-sub">通过微信服务通知推送</text>
+        </view>
+        <switch checked="{{reminderEnabled}}" color="#34C759" bindchange="toggleReminder" />
+      </view>
+      
+      <picker mode="selector" range="{{leadOptions}}" range-key="label" value="{{leadIndex}}" bindchange="changeLeadTime">
+        <view class="cell">
+          <text class="cell-label">提前时间</text>
+          <view class="cell-value-wrap">
+            <text class="cell-value">{{leadOptions[leadIndex].label}}</text>
+            <view class="arrow"></view>
+          </view>
+        </view>
+      </picker>
+
+      <view class="cell border-none" bindtap="requestSubscribe">
+        <view class="cell-label-col">
+          <text class="cell-label">剩余提醒额度</text>
+          <text class="cell-sub">点击领取/刷新次数</text>
+        </view>
+        <view class="cell-value-wrap">
+          <text class="cell-value badge-green">{{subscriptionCount}} 次</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Group 2: 数据同步 -->
+    <view class="group-title">数据同步</view>
+    <view class="group-card">
+      <view class="cell">
+        <view class="cell-label-col">
+          <text class="cell-label">自动同步内网数据</text>
+          <text class="cell-sub">考试时间、成绩、通知</text>
+        </view>
+        <switch checked="{{autoSync}}" color="#34C759" bindchange="toggleAutoSync" />
+      </view>
+      
+      <view class="cell border-none">
+        <view class="cell-label-col">
+          <text class="cell-label">辅助同步模式</text>
+          <text class="cell-sub">当网页无法直接打开时使用</text>
+        </view>
+        <view class="cell-value-wrap">
+          <view class="arrow"></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Group 3: 基础配置 -->
+    <view class="group-title">基础配置</view>
+    <view class="group-card">
+      <picker mode="date" value="{{semesterStart}}" bindchange="changeSemesterStart">
+        <view class="cell">
+          <text class="cell-label">学期起始周</text>
+          <view class="cell-value-wrap">
+            <text class="cell-value">{{semesterStart}}</text>
+            <view class="arrow"></view>
+          </view>
+        </view>
+      </picker>
+
+      <view class="cell border-none danger-cell" bindtap="clearData">
+        <text class="cell-label danger-text">清除本地缓存</text>
+      </view>
+    </view>
+    
+  </view>
+
+  <msg-box id="msgBox"></msg-box>
+</view>

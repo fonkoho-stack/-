@@ -1,0 +1,9 @@
+{
+    "name": "wxpusher_proxy",
+    "version": "1.0.0",
+    "description": "WxPusher HTTP 代理，用于发送推送消息",
+    "main": "index.js",
+    "dependencies": {
+        "wx-server-sdk": "~2.6.3"
+    }
+}

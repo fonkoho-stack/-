@@ -1,0 +1,53 @@
+<!--pages/upload/upload.wxml-->
+<view class="page">
+  <!-- Header Portion -->
+  <view class="header-section">
+    <view class="icon-box">
+      <view class="icon-inner">
+        <text class="pdf-emoji">📄</text>
+      </view>
+    </view>
+    <text class="header-title">导入课表</text>
+    <text class="header-subtitle">上传 PDF 文件，自动提取课程安排</text>
+  </view>
+
+  <!-- Upload Portion -->
+  <view class="upload-container">
+    <view class="upload-box" bindtap="chooseFile" hover-class="box-hover" wx:if="{{!uploading}}">
+      <view class="breath-container">
+        <view class="breath-ring"></view>
+        <view class="plus-btn">
+          <text class="plus-icon">+</text>
+        </view>
+      </view>
+      <text class="box-title">选择课表 PDF</text>
+      <text class="box-desc">支持从微信聊天、文件系统选取</text>
+    </view>
+
+    <!-- Uploading indicator -->
+    <view class="upload-box uploading" wx:if="{{uploading}}">
+      <view class="loading-spinner"></view>
+      <text class="box-title">{{progressText}}</text>
+      <view class="progress-bar">
+        <view class="progress-inner" style="width: {{progressPercent}}%"></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Steps Section -->
+  <view class="steps-section">
+    <text class="section-title">简单三步，搞定提醒</text>
+    
+    <view class="step-card" wx:for="{{steps}}" wx:key="name">
+      <view class="step-left">
+        <text class="step-num">{{item.icon}}</text>
+      </view>
+      <view class="step-right">
+        <text class="step-name">{{item.name}}</text>
+        <text class="step-desc">{{item.desc}}</text>
+      </view>
+    </view>
+  </view>
+
+  <msg-box id="msgBox" customNav="{{false}}"></msg-box>
+</view>

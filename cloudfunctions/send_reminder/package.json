@@ -1,0 +1,9 @@
+{
+    "name": "send_reminder",
+    "version": "1.0.0",
+    "description": "课前提醒定时触发器（微信订阅消息）",
+    "main": "index.js",
+    "dependencies": {
+        "wx-server-sdk": "~2.6.3"
+    }
+}

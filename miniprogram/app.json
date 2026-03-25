@@ -1,0 +1,55 @@
+{
+    "pages": [
+        "pages/upload/upload",
+        "pages/schedule/schedule",
+        "pages/settings/settings",
+        "pages/webview/login/login"
+    ],
+    "window": {
+        "navigationStyle": "default",
+        "navigationBarBackgroundColor": "#34C759",
+        "navigationBarTitleText": "校园课表助手",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#F8F9FA",
+        "backgroundTextStyle": "dark"
+    },
+    "tabBar": {
+        "color": "#8E8E93",
+        "selectedColor": "#34C759",
+        "backgroundColor": "#ffffff",
+        "borderStyle": "white",
+        "list": [
+            {
+                "pagePath": "pages/upload/upload",
+                "text": "上传",
+                "iconPath": "images/icon_upload.png",
+                "selectedIconPath": "images/icon_upload_active.png"
+            },
+            {
+                "pagePath": "pages/schedule/schedule",
+                "text": "课表",
+                "iconPath": "images/icon_schedule.png",
+                "selectedIconPath": "images/icon_schedule_active.png"
+            },
+            {
+                "pagePath": "pages/settings/settings",
+                "text": "设置",
+                "iconPath": "images/icon_settings.png",
+                "selectedIconPath": "images/icon_settings_active.png"
+            }
+        ]
+    },
+    "usingComponents": {
+        "msg-box": "/components/msg-box/msg-box"
+    },
+    "style": "v2",
+    "sitemapLocation": "sitemap.json",
+    "requiredPrivateInfos": [
+        "getLocation"
+    ],
+    "permission": {
+        "scope.userLocation": {
+            "desc": "您的位置信息将用于课程提醒的精准推送"
+        }
+    }
+}

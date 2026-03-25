@@ -1,0 +1,2 @@
+<!--pages/webview/login/login.wxml-->
+<web-view src="{{loginUrl}}"></web-view>

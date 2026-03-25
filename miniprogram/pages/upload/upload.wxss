@@ -1,0 +1,214 @@
+/* pages/upload/upload.wxss */
+.page {
+  min-height: 100vh;
+  background-color: #F8F9FA;
+  padding-bottom: 60rpx;
+}
+
+/* Header Section */
+.header-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 40rpx 60rpx 40rpx;
+}
+
+.icon-box {
+  width: 120rpx;
+  height: 120rpx;
+  background: linear-gradient(135deg, #F0FDF4 0%, #D1F2EB 100%);
+  border-radius: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30rpx;
+  box-shadow: 0 12rpx 30rpx rgba(26, 188, 156, 0.15);
+}
+
+.pdf-emoji {
+  font-size: 60rpx;
+}
+
+.header-title {
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #333333;
+  margin-bottom: 16rpx;
+}
+
+.header-subtitle {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+/* Upload Container */
+.upload-container {
+  padding: 0 40rpx;
+  margin-bottom: 80rpx;
+}
+
+.upload-box {
+  background-color: #ffffff;
+  border: 2rpx dashed rgba(0, 0, 0, 0.1);
+  border-radius: 32rpx;
+  height: 400rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.box-hover {
+  background-color: rgba(52, 199, 89, 0.02);
+}
+
+.breath-container {
+  position: relative;
+  width: 100rpx;
+  height: 100rpx;
+  margin-bottom: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plus-btn {
+  width: 100rpx;
+  height: 100rpx;
+  background-color: #34C759;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.plus-icon {
+  color: #ffffff;
+  font-size: 60rpx;
+  font-weight: 300;
+  margin-top: -6rpx;
+}
+
+/* Breathing Effect */
+.breath-ring {
+  position: absolute;
+  width: 100rpx;
+  height: 100rpx;
+  background-color: rgba(52, 199, 89, 0.4);
+  border-radius: 50%;
+  animation: breath 2.5s infinite ease-out;
+  z-index: 1;
+}
+
+@keyframes breath {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.box-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 12rpx;
+}
+
+.box-desc {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+/* Steps Section */
+.steps-section {
+  padding: 0 40rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 30rpx;
+  display: block;
+}
+
+.step-card {
+  background-color: #ffffff;
+  border-radius: 24rpx;
+  padding: 36rpx 40rpx;
+  margin-bottom: 24rpx;
+  display: flex;
+  align-items: center;
+}
+
+.step-left {
+  margin-right: 40rpx;
+}
+
+.step-num {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: #E5E5EA;
+  font-style: italic;
+}
+
+.step-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+}
+
+.step-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #333333;
+  margin-right: 40rpx;
+  min-width: 120rpx;
+}
+
+.step-desc {
+  font-size: 26rpx;
+  color: #999999;
+}
+
+/* Uploading State */
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid rgba(52, 199, 89, 0.1);
+  border-top: 4rpx solid #34C759;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 30rpx;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.progress-bar {
+  width: 300rpx;
+  height: 6rpx;
+  background-color: #F2F2F7;
+  border-radius: 3rpx;
+  margin-top: 24rpx;
+  overflow: hidden;
+}
+
+.progress-inner {
+  height: 100%;
+  background-color: #34C759;
+  transition: width 0.3s;
+}

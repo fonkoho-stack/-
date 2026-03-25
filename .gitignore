@@ -1,0 +1,32 @@
+# Node dependencies
+node_modules/
+package-lock.json
+
+# WeChat DevTools
+project.private.config.json
+.project.config.json.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build/Runtime
+dist/
+miniprogram_npm/
+runtime/
+*.log
+
+# Gemini/AI
+.gemini/
+.agents/
+.agent/
+brain/
+implementation_plan.md
+task.md
+walkthrough.md
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
