@@ -1,0 +1,12 @@
+{
+    "name": "assist_chaoxing",
+    "version": "1.0.0",
+    "description": "超星课堂助手云函数",
+    "main": "index.js",
+    "dependencies": {
+        "form-data": "^4.0.0",
+        "got": "^11.8.6",
+        "tough-cookie": "^4.1.4",
+        "wx-server-sdk": "~2.6.3"
+    }
+}

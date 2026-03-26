@@ -1,4 +1,5 @@
 {
+  "navigationBarTitleText": "通知与同步",
   "usingComponents": {
     "msg-box": "/components/msg-box/msg-box"
   }

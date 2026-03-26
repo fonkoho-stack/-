@@ -1,0 +1,98 @@
+<view class="page">
+  <view class="hero">
+    <view class="hero-tag">{{detail && detail.signTypeLabel ? detail.signTypeLabel : '签到'}}</view>
+    <view class="hero-title">{{activityName}}</view>
+    <view class="hero-desc">{{courseName}}</view>
+  </view>
+
+  <view class="loading-block" wx:if="{{loading}}">
+    <view class="spinner"></view>
+    <text>正在准备签到信息...</text>
+  </view>
+
+  <block wx:elif="{{detail}}">
+    <view class="card">
+      <view class="section-title">签到状态</view>
+      <view class="status-row">
+        <view class="pill {{detail.signed ? 'done' : 'pending'}}">{{detail.signed ? '已签到' : '待签到'}}</view>
+        <view class="pill ghost" wx:if="{{detail.needPhoto}}">需要图片</view>
+        <view class="pill ghost" wx:if="{{detail.needCaptcha}}">需要验证</view>
+      </view>
+
+      <view class="tip">{{helperText}}</view>
+
+      <view class="detail-line" wx:if="{{detail.startTimeText}}">开始时间：{{detail.startTimeText}}</view>
+      <view class="detail-line" wx:if="{{detail.locationText}}">指定地点：{{detail.locationText}}</view>
+      <view class="detail-line" wx:if="{{detail.locationRange}}">签到范围：{{detail.locationRange}} 米</view>
+    </view>
+
+    <view class="card" wx:if="{{detail.signType === 'normal' && detail.needPhoto}}">
+      <view class="section-title">拍照签到</view>
+      <view class="photo-box" wx:if="{{account && account.lastSignPhotoName}}">
+        <view class="photo-name">最近图片：{{account.lastSignPhotoName}}</view>
+        <view class="photo-time">{{recentPhotoText}}</view>
+      </view>
+      <view class="photo-box empty" wx:else>当前还没有最近图片，请先选择一张签到图。</view>
+      <view class="button-row">
+        <button class="secondary" bindtap="pickSignPhoto">选择图片</button>
+        <button
+          class="primary"
+          bindtap="submitPhoto"
+          loading="{{submitting}}"
+          disabled="{{submitting || detail.signed || detail.needCaptcha || !account || !account.lastSignPhotoFileId || detail.unsupportedReason}}"
+        >
+          使用最近图片签到
+        </button>
+      </view>
+    </view>
+
+    <view class="card" wx:elif="{{detail.signType === 'normal'}}">
+      <view class="section-title">普通签到</view>
+      <button
+        class="primary full"
+        bindtap="submitNormal"
+        loading="{{submitting}}"
+        disabled="{{submitting || detail.signed || detail.needCaptcha || detail.unsupportedReason}}"
+      >
+        立即签到
+      </button>
+    </view>
+
+    <view class="card" wx:elif="{{detail.signType === 'code'}}">
+      <view class="section-title">签到码签到</view>
+      <input
+        class="input"
+        type="number"
+        maxlength="{{detail.numberCount || 8}}"
+        placeholder="请输入签到码"
+        value="{{code}}"
+        bindinput="updateCode"
+      />
+      <button
+        class="primary full"
+        bindtap="submitCode"
+        loading="{{submitting}}"
+        disabled="{{submitting || detail.signed || detail.needCaptcha || detail.unsupportedReason}}"
+      >
+        提交签到码
+      </button>
+    </view>
+
+    <view class="card" wx:elif="{{detail.signType === 'qrcode'}}">
+      <view class="section-title">二维码签到</view>
+      <button
+        class="primary full"
+        bindtap="scanAndSubmit"
+        loading="{{submitting}}"
+        disabled="{{submitting || detail.signed || detail.needCaptcha || detail.unsupportedReason}}"
+      >
+        扫码并签到
+      </button>
+    </view>
+
+    <view class="card" wx:else>
+      <view class="section-title">暂不支持</view>
+      <view class="tip">{{detail.unsupportedReason || '当前签到类型一期暂不支持。'}}</view>
+    </view>
+  </block>
+</view>

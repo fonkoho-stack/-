@@ -1,0 +1,49 @@
+<view class="page">
+  <view class="hero">
+    <view class="hero-tag">进行中的课程</view>
+    <view class="hero-title">课程列表</view>
+    <view class="hero-desc">这里只展示当前仍在进行中的超星课程，点进课程后就能查看活动并继续签到。</view>
+  </view>
+
+  <view class="loading-block" wx:if="{{loading}}">
+    <view class="spinner"></view>
+    <text>正在拉取课程...</text>
+  </view>
+
+  <view class="empty-card" wx:elif="{{errorText}}">
+    <view class="empty-title">加载失败</view>
+    <view class="empty-desc">{{errorText}}</view>
+    <button class="primary" bindtap="loadCourses">重新加载</button>
+  </view>
+
+  <view class="empty-card" wx:elif="{{!courses.length}}">
+    <view class="empty-title">暂无可用课程</view>
+    <view class="empty-desc">当前账号下没有进行中的课程，或者超星暂时没有返回课程数据。</view>
+  </view>
+
+  <view class="course-list" wx:else>
+    <view class="course-card" wx:for="{{courses}}" wx:key="courseId" bindtap="openCourse" data-item="{{item}}">
+      <view class="course-main">
+        <image
+          class="cover"
+          wx:if="{{item.image}}"
+          src="{{item.image}}"
+          mode="aspectFill"
+        ></image>
+        <view class="cover placeholder" wx:else>课</view>
+        <view class="meta">
+          <view class="name">{{item.name}}</view>
+          <view class="teacher">{{item.teacher || '未知教师'}}</view>
+          <view class="note" wx:if="{{item.note}}">{{item.note}}</view>
+          <view class="note" wx:if="{{item.schools}}">{{item.schools}}</view>
+        </view>
+      </view>
+      <view class="course-footer">
+        <view class="time" wx:if="{{item.beginDate || item.endDate}}">
+          {{item.beginDate || '未知开始'}} - {{item.endDate || '未知结束'}}
+        </view>
+        <view class="action">查看活动</view>
+      </view>
+    </view>
+  </view>
+</view>

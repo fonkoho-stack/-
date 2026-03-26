@@ -1,0 +1,174 @@
+<view class="page">
+  <view class="hero">
+    <view class="hero-top">
+      <view class="hero-main">
+        <view class="hero-title">课堂助手</view>
+        <view class="hero-kicker">{{account ? '课程自动化签到' : '绑定后可直接查看课程与签到'}}</view>
+      </view>
+      <text class="hero-mini">{{account ? '自动巡检' : '待绑定'}}</text>
+    </view>
+
+    <view class="hero-desc" wx:if="{{account}}">
+      定位、扫码签到暂不支持
+    </view>
+    <view class="hero-desc" wx:else>
+      绑定超星账号后，可在小程序里直接处理常用签到。
+    </view>
+  </view>
+
+  <view class="loading-block" wx:if="{{loading}}">
+    <view class="spinner"></view>
+    <text>正在整理课堂助手数据...</text>
+  </view>
+
+  <block wx:elif="{{account}}">
+    <view class="card account-card">
+      <view class="section-head">
+        <view>
+          <view class="section-title">当前账号</view>
+          <view class="section-subtitle">课程、活动和签到都会使用这个超星账号</view>
+        </view>
+      </view>
+
+      <view class="account-row">
+        <image
+          class="avatar"
+          src="{{account.avatarUrl || 'https://photo.chaoxing.com/default.jpg'}}"
+          mode="aspectFill"
+        ></image>
+        <view class="account-meta">
+          <view class="name">{{account.displayName}}</view>
+          <view class="sub">{{account.phoneMasked || account.accountUid}}</view>
+        </view>
+        <button class="account-logout" bindtap="logout" loading="{{submitting}}">退出绑定</button>
+      </view>
+
+      <view class="note" wx:if="{{account.lastSignPhotoName}}">
+        <view>最近签到图：{{account.lastSignPhotoName}}</view>
+        <view>{{recentPhotoText}}</view>
+      </view>
+
+      <button class="primary-action" bindtap="openCourses">
+        <text>📚 进入我的课堂</text>
+      </button>
+    </view>
+
+    <view class="card settings-card">
+      <view class="section-head">
+        <view>
+          <view class="section-title">签到管理</view>
+          <view class="section-subtitle">管理自动执行规则及执行手动签到</view>
+        </view>
+      </view>
+
+      <view class="cell">
+        <view class="cell-label-col">
+          <text class="cell-label">自动签到</text>
+          <text class="cell-sub">普通、拍照、签到码、手势签到将自动处理</text>
+        </view>
+        <switch checked="{{autoSignEnabled}}" color="#34C759" bindchange="toggleAutoSign"></switch>
+      </view>
+
+
+      <view class="cell" hover-class="cell-hover" bindtap="chooseLatestPhoto">
+        <view class="cell-label-col">
+          <text class="cell-label">📷 更新预存照片</text>
+          <text class="cell-sub">用于自动/手动拍照签到时的默认图片</text>
+        </view>
+        <text class="cell-arrow">›</text>
+      </view>
+    </view>
+
+    <view class="card log-card" wx:if="{{autoSignLog.length > 0}}">
+      <view class="section-head">
+        <view>
+          <view class="section-title">最近自动签到记录</view>
+        </view>
+      </view>
+      <view class="auto-sign-log">
+        <view class="log-item" wx:for="{{autoSignLog}}" wx:key="activeId">
+          <view class="log-row">
+            <text class="log-course">{{item.courseName}}</text>
+            <text class="log-status log-status-{{item.status}}">{{item.status === 'success' ? '✅ 成功' : item.status === 'failed' ? '❌ 失败' : item.status === 'skipped' ? '⏭ 跳过' : '✔ 已签'}}</text>
+          </view>
+          <view class="log-detail">{{item.activityName}} · {{item.signType === 'photo' ? '拍照' : item.signType === 'code' ? '免码' : '普通'}} · {{item.attemptedAt}}</view>
+          <view class="log-detail" wx:if="{{item.status === 'failed' || item.status === 'skipped'}}">{{item.message}}</view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="card login-card">
+      <view class="section-title">绑定超星账号</view>
+      <view class="section-subtitle">绑定后就能查看课程活动，并在小程序里完成常用签到。</view>
+
+      <view class="segmented">
+        <view class="segment {{loginMode === 'password' ? 'active' : ''}}" data-mode="password" bindtap="setLoginMode">
+          密码登录
+        </view>
+        <view class="segment {{loginMode === 'sms' ? 'active' : ''}}" data-mode="sms" bindtap="setLoginMode">
+          短信登录
+        </view>
+      </view>
+
+      <input
+        class="input"
+        placeholder="手机号 / 超星账号"
+        data-field="username"
+        bindinput="updateField"
+        value="{{username}}"
+      />
+
+      <input
+        wx:if="{{loginMode === 'password'}}"
+        class="input"
+        password
+        placeholder="密码"
+        data-field="password"
+        bindinput="updateField"
+        value="{{password}}"
+      />
+
+      <view wx:else class="inline-row">
+        <input
+          class="input flex"
+          placeholder="短信验证码"
+          data-field="smsCode"
+          bindinput="updateField"
+          value="{{smsCode}}"
+        />
+        <button
+          class="secondary small"
+          bindtap="sendSmsCode"
+          loading="{{sendingCode}}"
+          disabled="{{countdown > 0 || sendingCode}}"
+        >
+          {{countdown > 0 ? countdown + 's' : '发送验证码'}}
+        </button>
+      </view>
+
+      <button class="primary full" bindtap="submitLogin" loading="{{submitting}}">立即绑定</button>
+      <view class="hint">如果密码登录被要求安全验证，请改用短信验证码登录。</view>
+    </view>
+
+    <view class="card guide-card">
+      <view class="section-title">绑定后可以做什么</view>
+      <view class="feature-list">
+        <view class="feature-item">
+          <view class="feature-dot"></view>
+          <text class="feature-text">云端检测新的超星签到，并把提醒放进原本的消息盒子</text>
+        </view>
+        <view class="feature-item">
+          <view class="feature-dot"></view>
+          <text class="feature-text">查看课程和活动列表，在小程序里直接进入签到页</text>
+        </view>
+        <view class="feature-item">
+          <view class="feature-dot"></view>
+          <text class="feature-text">支持普通签到、签到码、二维码和选图拍照签到</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+</view>

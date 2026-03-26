@@ -1,7 +1,11 @@
-// components/msg-box/msg-box.js
 const app = getApp();
-// 已移除后端请求依赖，改为纯本地 Mock 模式
-// import { API_BASE_URL } from '../../config';
+const {
+    callAssist,
+    formatTimeText,
+    getAlertCache,
+    normalizeError,
+    setAlertCache,
+} = require('../../utils/assist');
 
 const PERIOD_MAP = {
     1: { start: '08:00', end: '08:45' },
@@ -15,32 +19,54 @@ const PERIOD_MAP = {
     9: { start: '19:30', end: '20:15' },
     10: { start: '20:25', end: '21:10' },
     11: { start: '21:20', end: '22:05' },
-    12: { start: '22:15', end: '23:00' }
+    12: { start: '22:15', end: '23:00' },
 };
 
-function isEventInWeek(ev, week) {
-    if (!ev.weeks) return true;
-    if (ev.weeks.mode === 'range' && ev.weeks.ranges) {
-        for (let r of ev.weeks.ranges) {
-            if (week >= r.start && week <= r.end) {
-                if (r.odd_even === 'odd' && week % 2 === 0) continue;
-                if (r.odd_even === 'even' && week % 2 !== 0) continue;
-                return true;
+function isEventInWeek(event, week) {
+    if (!event.weeks) {
+        return true;
+    }
+    if (event.weeks.mode === 'range' && event.weeks.ranges) {
+        for (const range of event.weeks.ranges) {
+            if (week < range.start || week > range.end) {
+                continue;
             }
+            if (range.odd_even === 'odd' && week % 2 === 0) {
+                continue;
+            }
+            if (range.odd_even === 'even' && week % 2 !== 0) {
+                continue;
+            }
+            return true;
         }
-    } else if (ev.weeks.mode === 'list' && ev.weeks.list) {
-        return ev.weeks.list.includes(week);
+    } else if (event.weeks.mode === 'list' && event.weeks.list) {
+        return event.weeks.list.includes(week);
     }
     return false;
+}
+
+function emptySummary() {
+    return {
+        alerts: [],
+        unreadCount: 0,
+        readyCount: 0,
+        limitedCount: 0,
+        scannedAt: '',
+    };
+}
+
+function formatAlertTime(value) {
+    return value ? formatTimeText(value) : '';
 }
 
 Component({
     properties: {
         customNav: {
             type: Boolean,
-            value: false
-        }
+            value: false,
+        },
     },
+
     data: {
         showMsgBox: false,
         btnX: 300,
@@ -48,129 +74,486 @@ Component({
         clickX: 0,
         clickY: 0,
         msgBoxAnimateClass: '',
-        hasNewMsg: true,
-        isSyncing: true, 
-        isDragging: false, 
-        useAnimation: false, 
-        hasSchedule: false, 
-        isTodayFree: false, 
+        hasNewMsg: false,
+        isSyncing: true,
+        isDragging: false,
+        useAnimation: false,
+        hasSchedule: false,
+        isTodayFree: false,
         nextCourse: null,
-        publicEvents: [],
-        currentEventIndex: 0,
-        currentEvent: null,
-        notifications: [
-            { id: 1, icon: '🌟', title: '系统更新', desc: '消息盒子现已支持全局显示' },
-            { id: 2, icon: '📅', title: '智能提醒', desc: '时刻关注您的下一节课程' }
-        ]
+        tips: [],
+        currentTipIndex: 0,
+        currentTip: null,
+        assistUnreadCount: 0,
+        assistLastUpdated: '',
+        notifications: [],
+        scrollTarget: '', // 用于自动定位的节点 ID
+        isAnimating: false,
+        // --- 设置中心数据 ---
+        reminderEnabled: false,
+        leadOptions: [
+            { label: '5 分钟', value: 5 },
+            { label: '10 分钟', value: 10 },
+            { label: '15 分钟', value: 15 },
+            { label: '30 分钟', value: 30 },
+            { label: '1 小时', value: 60 }
+        ],
+        leadIndex: 2,
+        semesterStart: '2026-03-02',
+        currentWeek: 1,
+        subscriptionCount: 0,
     },
 
     lifetimes: {
         attached() {
             const windowInfo = wx.getWindowInfo();
             this._windowWidth = windowInfo.windowWidth;
+            this.restoreFloatState();
             
-            let state = app.globalData.msgBoxState;
-            if (!state || state.x === undefined) {
-                state = wx.getStorageSync('msg_box_state') || { x: 300, y: 500, hasNewMsg: true };
-                app.globalData.msgBoxState = state;
-            }
+            // 批处理合并初始化数据，避免触发渲染层 Expected updated data 报错
+            const initState = {
+                ...this.getInitialSyncState(),
+                // 确保移动视图位置同步
+                btnX: this._lastX,
+                btnY: this._lastY
+            };
             
-            this.setData({
-                btnX: Number(state.x) || 300,
-                btnY: Number(state.y) || 500,
-                hasNewMsg: state.hasNewMsg !== false,
-                isSyncing: true, 
-                useAnimation: false 
-            }, () => {
-                setTimeout(() => {
-                    this.setData({ isSyncing: false, useAnimation: true });
-                }, 150);
-            });
-            this._lastX = Number(state.x) || 300;
-            this._lastY = Number(state.y) || 500;
+            setTimeout(() => {
+                this.setData(initState, () => {
+                   this.setData({ isSyncing: false, useAnimation: true });
+                });
+                
+                // 启动异步任务
+                this.refreshAssistAlerts(true);
+                this.fetchSubscriptionCount();
+            }, 50);
 
-            this.updateDateAndCourse();
-            this.fetchPublicEvents();
-            
-            this._stateWatcher = (state) => {
-                if (this._isSelfMoving) return;
+            this._stateWatcher = (nextState) => {
+                if (this._isSelfMoving) {
+                    return;
+                }
                 this.setData({
                     isSyncing: true,
                     useAnimation: false,
-                    btnX: state.x,
-                    btnY: state.y,
-                    hasNewMsg: state.hasNewMsg
+                    btnX: nextState.x,
+                    btnY: nextState.y,
+                    hasNewMsg: nextState.hasNewMsg,
                 }, () => {
-                    setTimeout(() => this.setData({ isSyncing: false, useAnimation: true }), 80);
+                    setTimeout(() => {
+                        this.setData({
+                            isSyncing: false,
+                            useAnimation: true,
+                        });
+                    }, 80);
                 });
-                this._lastX = state.x;
-                this._lastY = state.y;
+                this._lastX = nextState.x;
+                this._lastY = nextState.y;
             };
-            
-            if (!app.globalData.msgBoxWatchers) app.globalData.msgBoxWatchers = [];
+
+            if (!app.globalData.msgBoxWatchers) {
+                app.globalData.msgBoxWatchers = [];
+            }
             app.globalData.msgBoxWatchers.push(this._stateWatcher);
 
             this.refreshTimer = setInterval(() => {
                 this.updateDateAndCourse();
             }, 60000);
-            
+
             this.rotateTimer = setInterval(() => {
-                this.rotateEvent();
+                this.rotateTip();
             }, 5000);
+
+            this.alertTimer = setInterval(() => {
+                this.refreshAssistAlerts(true);
+            }, 45000);
         },
+
         detached() {
-            if (this.refreshTimer) clearInterval(this.refreshTimer);
-            if (this.rotateTimer) clearInterval(this.rotateTimer);
-            
-            if (app.globalData.msgBoxWatchers) {
-                const watchers = app.globalData.msgBoxWatchers;
-                const idx = watchers.indexOf(this._stateWatcher);
-                if (idx > -1) watchers.splice(idx, 1);
+            if (this.refreshTimer) {
+                clearInterval(this.refreshTimer);
             }
-        }
+            if (this.rotateTimer) {
+                clearInterval(this.rotateTimer);
+            }
+            if (this.alertTimer) {
+                clearInterval(this.alertTimer);
+            }
+            if (app.globalData.msgBoxWatchers) {
+                const index = app.globalData.msgBoxWatchers.indexOf(this._stateWatcher);
+                if (index > -1) {
+                    app.globalData.msgBoxWatchers.splice(index, 1);
+                }
+            }
+        },
     },
 
     pageLifetimes: {
         show() {
-            const state = app.globalData.msgBoxState || wx.getStorageSync('msg_box_state') || {x:300, y:500, hasNewMsg:true};
-            this.setData({
-                isSyncing: true,
-                useAnimation: false,
-                btnX: state.x,
-                btnY: state.y,
-                hasNewMsg: state.hasNewMsg
-            }, () => {
-                setTimeout(() => this.setData({ isSyncing: false, useAnimation: true }), 100);
-            });
-            this._lastX = state.x;
-            this._lastY = state.y;
+            this.restoreFloatState();
             this.updateDateAndCourse();
+            this.loadAssistAlertsFromCache();
+            this.refreshAssistAlerts(true);
+            
+            // 监听全局引导标志位
+            if (app.globalData.triggerRemindGuide) {
+                app.globalData.triggerRemindGuide = false;
+                this.runAutoGuide();
+            }
         },
+
         hide() {
             if (this.data.showMsgBox) {
-                this.setData({ showMsgBox: false, msgBoxAnimateClass: '' });
+                this.closeOverlayImmediately();
             }
-        }
+        },
     },
 
     methods: {
+        // 提取所有初始同步数据，用于 attached 批处理
+        getInitialSyncState() {
+            const state = {};
+            
+            // 1. 设置
+            const settings = wx.getStorageSync('reminder_settings');
+            if (settings) {
+                state.reminderEnabled = settings.reminderEnabled;
+                state.leadIndex = settings.leadIndex || 2;
+                state.semesterStart = settings.semesterStart || '2026-03-02';
+            }
+            
+            // 2. 课表与周次
+            const startStr = state.semesterStart || this.data.semesterStart;
+            const semesterStart = new Date(`${startStr}T00:00:00`);
+            const now = new Date();
+            const diffDays = Math.floor((now.getTime() - semesterStart.getTime()) / (24 * 3600 * 1000));
+            state.currentWeek = Math.max(1, Math.min(25, Math.floor(diffDays / 7) + 1));
+            
+            const nextCourseData = this.calculateNextCourse(state.currentWeek);
+            state.nextCourse = nextCourseData.nextCourse;
+            state.hasSchedule = nextCourseData.hasSchedule;
+            state.isTodayFree = nextCourseData.isTodayFree;
+            
+            // 3. 提示词
+            const tipData = this.generateTips();
+            state.tips = tipData.tips;
+            state.currentTipIndex = 0;
+            state.currentTip = tipData.tips[0];
+            
+            // 4. 签到缓存
+            const summary = getAlertCache() || emptySummary();
+            const alerts = (summary.alerts || []).map((item) => ({
+                ...item,
+                id: item.activeId,
+                isSign: true,
+                icon: '签到',
+                title: item.courseName || '新的签到',
+                desc: item.activityName || item.helperText,
+                timeText: formatAlertTime(item.startTime || item.detectedAt),
+            }));
+            state.notifications = alerts;
+            state.assistUnreadCount = summary.unreadCount || 0;
+            state.assistLastUpdated = summary.scannedAt ? formatAlertTime(summary.scannedAt) : '';
+            state.hasNewMsg = (summary.unreadCount || 0) > 0;
+            
+            return state;
+        },
+
+        restoreFloatState() {
+            const state = app.globalData.msgBoxState || wx.getStorageSync('msg_box_state') || {
+                x: 300,
+                y: 500,
+                hasNewMsg: false,
+            };
+            app.globalData.msgBoxState = state;
+            this._lastX = Number(state.x) || 300;
+            this._lastY = Number(state.y) || 500;
+            // 注意：这里不直接 setData，由 attached 统一处理 initState
+        },
+
+        fetchSubscriptionCount() {
+            const sid = app.globalData.scheduleId || wx.getStorageSync('schedule_id');
+            if (!sid) return;
+            wx.cloud.callFunction({
+                name: 'get_schedule',
+                data: { action: 'get_sub_count', schedule_id: sid }
+            }).then(res => {
+                if (res.result && typeof res.result.data.subscription_count === 'number') {
+                    const count = res.result.data.subscription_count;
+                    this.setData({ subscriptionCount: count });
+                    app.globalData.subscriptionCount = count;
+                }
+            });
+        },
+
+        toggleReminder(e) {
+            const enabled = e.detail.value;
+            if (enabled) {
+                this.requestSubscribe((success) => {
+                    if (success) {
+                        this.setData({ reminderEnabled: true });
+                        this.saveSettings();
+                    } else {
+                        this.setData({ reminderEnabled: false });
+                        wx.showToast({ title: '开启提醒需授权额度', icon: 'none' });
+                    }
+                });
+            } else {
+                this.setData({ reminderEnabled: false });
+                this.saveSettings();
+            }
+        },
+
+        requestSubscribe(callback) {
+            const sid = app.globalData.scheduleId || wx.getStorageSync('schedule_id');
+            if (!sid) {
+                wx.showToast({ title: '请先导入课表', icon: 'none' });
+                if (typeof callback === 'function') callback(false);
+                return;
+            }
+            const TEMPLATE_ID = 'Z565zxBRTt20vIOi6Zo4S2sIqL2mghnFaRg_MPi-M9c';
+            wx.requestSubscribeMessage({
+                tmplIds: [TEMPLATE_ID],
+                success: (res) => {
+                    if (res[TEMPLATE_ID] === 'accept') {
+                        wx.cloud.callFunction({
+                            name: 'get_schedule',
+                            data: { action: 'add_sub', schedule_id: sid }
+                        }).then(res => {
+                            if (res.result && res.result.success) {
+                                const newCount = res.result.data.subscription_count;
+                                this.setData({ subscriptionCount: newCount });
+                                app.globalData.subscriptionCount = newCount;
+                                wx.showToast({ title: `额度已增加`, icon: 'success' });
+                                if (typeof callback === 'function') callback(true);
+                            } else {
+                                if (typeof callback === 'function') callback(false);
+                            }
+                        }).catch(() => {
+                            if (typeof callback === 'function') callback(false);
+                        });
+                    } else {
+                        if (typeof callback === 'function') callback(false);
+                    }
+                },
+                fail: (err) => {
+                    if (err.errCode === 20004) {
+                        wx.showModal({
+                            title: '订阅提示',
+                            content: '您关闭了消息接收开关，请在设置中打开以接收提醒',
+                            showCancel: false
+                        });
+                    }
+                    if (typeof callback === 'function') callback(false);
+                }
+            });
+        },
+
+        runAutoGuide() {
+            // 复用 toggleMsgBox 的波纹展开动画
+            this.setData({
+                clickX: this._lastX + 40,
+                clickY: this._lastY + 28,
+                showMsgBox: true,
+                msgBoxAnimateClass: 'animate-ripple',
+                hasNewMsg: false,
+                isAnimating: true,
+                scrollTarget: 'settings-section'
+            });
+            // 等动画播完再弹确认框
+            setTimeout(() => {
+                this.setData({ isAnimating: false });
+                wx.showModal({
+                    title: '开启课前提醒',
+                    content: '课表导入成功！现在为您开启"课前提醒"功能，请在随后的提示中选择"允许"。',
+                    confirmText: '去开启',
+                    showCancel: false,
+                    success: (res) => {
+                        if (res.confirm) {
+                            this.requestSubscribe((success) => {
+                                if (success) {
+                                    this.setData({ reminderEnabled: true });
+                                    this.saveSettings();
+                                }
+                            });
+                        }
+                    }
+                });
+            }, 300);
+        },
+
+        saveSettings() {
+            const settings = {
+                reminderEnabled: this.data.reminderEnabled,
+                leadIndex: this.data.leadIndex,
+                leadMinutes: this.data.leadOptions[this.data.leadIndex].value,
+                semesterStart: this.data.semesterStart,
+            };
+            wx.setStorageSync('reminder_settings', settings);
+        },
+
+        changeSemesterStart(e) {
+            const val = e.detail.value;
+            this.setData({ semesterStart: val });
+            this.saveSettings();
+            // 重算周次和课程
+            this.updateDateAndCourse();
+        },
+
+        changeLeadTime(e) {
+            const index = parseInt(e.detail.value);
+            this.setData({ leadIndex: index });
+            this.saveSettings();
+        },
+
+        calculateNextCourse(currentWeek) {
+            const allEvents = app.globalData.scheduleData || wx.getStorageSync('schedule_data');
+            if (!allEvents || allEvents.length === 0) {
+                return { nextCourse: null, hasSchedule: false, isTodayFree: false };
+            }
+
+            const now = new Date();
+            const currentDay = now.getDay() === 0 ? 7 : now.getDay();
+            const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+            const settings = wx.getStorageSync('reminder_settings') || { leadMinutes: 15 };
+            const leadMinutes = settings.leadMinutes || 15;
+
+            let nextCourse = null;
+            let minDiff = Infinity;
+            const todayEvents = allEvents.filter((item) =>
+                item.day_of_week === currentDay && isEventInWeek(item, currentWeek)
+            );
+
+            if (todayEvents.length === 0) {
+                return { nextCourse: null, hasSchedule: true, isTodayFree: true };
+            }
+
+            for (const event of todayEvents) {
+                const startTime = PERIOD_MAP[event.time.period_start];
+                if (!startTime) continue;
+                const [hour, minute] = startTime.start.split(':').map(Number);
+                const eventMinutes = hour * 60 + minute;
+                const diffMinutes = eventMinutes - currentTotalMinutes;
+                if (diffMinutes <= 0 || diffMinutes >= minDiff) continue;
+                minDiff = diffMinutes;
+                nextCourse = {
+                    ...event,
+                    startTime: startTime.start,
+                    location: event.location && event.location.building
+                        ? `${event.location.building}${event.location.room || ''}`
+                        : ((event.location && event.location.raw) || '未知地点'),
+                    countdown: diffMinutes > 60
+                        ? `约 ${Math.floor(diffMinutes / 60)} 小时后`
+                        : `${diffMinutes} 分钟后`,
+                    isUpcoming: diffMinutes <= leadMinutes,
+                };
+            }
+            return { nextCourse, hasSchedule: true, isTodayFree: false };
+        },
+
+        generateTips() {
+            const tips = [
+                {
+                    id: 'tip-1',
+                    title: '签到提醒会自动进入消息盒子',
+                    content: '云端巡检到新的超星签到后，会优先把提醒放到这里，方便你从任意页面快速进入。',
+                    footerLeft: '自动刷新',
+                    footerRight: '签到提醒',
+                },
+                {
+                    id: 'tip-2',
+                    title: '拍照签到支持最近图片复用',
+                    content: '你可以先在课堂助手里设置一张最近的签到图，遇到拍照签到时就不用重复上传。',
+                    footerLeft: '建议提前准备',
+                    footerRight: '拍照签到',
+                },
+            ];
+            return { tips };
+        },
+
         updateDateAndCourse() {
-            const semesterStartStr = wx.getStorageSync('semester_start') || '2026-03-02';
-            const semesterStart = new Date(semesterStartStr + 'T00:00:00');
+            const startStr = this.data.semesterStart || wx.getStorageSync('semester_start') || '2026-03-02';
+            const semesterStart = new Date(`${startStr}T00:00:00`);
             const now = new Date();
             const diffDays = Math.floor((now.getTime() - semesterStart.getTime()) / (24 * 3600 * 1000));
             const currentWeek = Math.max(1, Math.min(25, Math.floor(diffDays / 7) + 1));
-            this.findNextCourse(currentWeek);
+            
+            const nextData = this.calculateNextCourse(currentWeek);
+            this.setData({ 
+                currentWeek,
+                ...nextData
+            });
+        },
+
+        loadAssistAlertsFromCache() {
+            const summary = getAlertCache() || emptySummary();
+            this.applyAssistSummary(summary);
+        },
+
+
+        applyAssistSummary(summary) {
+            const normalized = summary || emptySummary();
+            const alerts = (normalized.alerts || []).map((item) => ({
+                ...item,
+                id: item.activeId,
+                isSign: true, // 标识为签到类型
+                icon: '签到',
+                title: item.courseName || '新的签到',
+                desc: item.activityName || item.helperText,
+                timeText: formatAlertTime(item.startTime || item.detectedAt),
+            }));
+            const unreadCount = normalized.unreadCount || 0;
+            const assistLastUpdated = normalized.scannedAt ? formatAlertTime(normalized.scannedAt) : '';
+            this.setData({
+                notifications: alerts,
+                assistUnreadCount: unreadCount,
+                assistLastUpdated,
+                hasNewMsg: unreadCount > 0,
+            });
+            if (typeof app.notifyMsgBoxStateChange === 'function') {
+                app.notifyMsgBoxStateChange({ hasNewMsg: unreadCount > 0 });
+            }
+        },
+
+        async refreshAssistAlerts(silent = false) {
+            try {
+                const summary = await callAssist('get_sign_notifications');
+                setAlertCache(summary);
+                this.applyAssistSummary(summary);
+            } catch (error) {
+                const detail = normalizeError(error, '加载签到提醒失败');
+                if (detail.code === 'AUTH_REQUIRED' || detail.code === 'SETUP_REQUIRED') {
+                    const summary = emptySummary();
+                    setAlertCache(summary);
+                    this.applyAssistSummary(summary);
+                    return;
+                }
+                if (!silent) {
+                    wx.showToast({
+                        title: detail.message,
+                        icon: 'none',
+                    });
+                }
+            }
+        },
+
+        async markAssistAlertsRead(activeId = '') {
+            try {
+                const summary = await callAssist('mark_sign_notifications_read', activeId ? { activeId } : {});
+                setAlertCache(summary);
+                this.applyAssistSummary(summary);
+            } catch (error) {
+                // Keep the component quiet here to avoid interrupting navigation.
+            }
         },
 
         onTouchStart() {
             this.setData({ isDragging: true });
         },
 
-        onBtnMove(e) {
-            this._lastX = e.detail.x;
-            this._lastY = e.detail.y;
-            if (e.detail.source === 'touch' && !this.data.isDragging) {
+        onBtnMove(event) {
+            this._lastX = event.detail.x;
+            this._lastY = event.detail.y;
+            if (event.detail.source === 'touch' && !this.data.isDragging) {
                 this.setData({ isDragging: true });
             }
         },
@@ -178,127 +561,170 @@ Component({
         onTouchEnd() {
             this.setData({ isDragging: false });
             const query = this.createSelectorQuery();
-            query.select('.floating-btn').boundingClientRect(rect => {
-                if (!rect) return;
-                let targetX = this._lastX < (this._windowWidth - rect.width) / 2 ? 10 : this._windowWidth - rect.width - 10;
-                this.setData({ btnX: targetX, btnY: this._lastY }, () => {
-                    app.notifyMsgBoxStateChange({ x: targetX, y: this._lastY });
+            query.select('.floating-btn').boundingClientRect((rect) => {
+                if (!rect) {
+                    return;
+                }
+                const targetX = this._lastX < (this._windowWidth - rect.width) / 2
+                    ? 12
+                    : this._windowWidth - rect.width - 12;
+                this.setData({
+                    btnX: targetX,
+                    btnY: this._lastY,
+                }, () => {
+                    app.notifyMsgBoxStateChange({
+                        x: targetX,
+                        y: this._lastY,
+                    });
                 });
             }).exec();
         },
 
-        toggleMsgBox(e) {
-            if (this.data.isAnimating) return; // 动画锁定：防止连点导致动画异常
-
+        toggleMsgBox() {
+            if (this.data.isAnimating) {
+                return;
+            }
             if (this.data.showMsgBox) {
-                this.setData({ msgBoxAnimateClass: 'animate-ripple-out', isAnimating: true });
-                setTimeout(() => {
-                    this.setData({ showMsgBox: false, msgBoxAnimateClass: '', isAnimating: false });
-                }, 800); 
-            } else {
-                if (app.notifyMsgBoxStateChange) {
-                    app.notifyMsgBoxStateChange({ hasNewMsg: false });
-                }
                 this.setData({
-                    clickX: this._lastX + 25,
-                    clickY: this._lastY + 25,
-                    showMsgBox: true,
-                    msgBoxAnimateClass: 'animate-ripple',
-                    hasNewMsg: false,
-                    isAnimating: true
+                    msgBoxAnimateClass: 'animate-ripple-out',
+                    isAnimating: true,
                 });
                 setTimeout(() => {
-                    this.setData({ isAnimating: false });
-                }, 800);
-            }
-        },
-
-        findNextCourse(currentWeek) {
-            const allEvents = app.globalData.scheduleData || wx.getStorageSync('schedule_data');
-            if (!allEvents || allEvents.length === 0) {
-                this.setData({ nextCourse: null, hasSchedule: false });
-                return;
-            }
-            this.setData({ hasSchedule: true });
-
-            const now = new Date();
-            const currentDay = now.getDay() === 0 ? 7 : now.getDay();
-            const currentTotalMins = now.getHours() * 60 + now.getMinutes();
-            
-            // 获取用户设置的提前提醒时间
-            const settings = wx.getStorageSync('reminder_settings') || { leadMinutes: 15 };
-            const leadMins = settings.leadMinutes || 15;
-
-            let next = null;
-            let minDiff = Infinity;
-            const todayEvents = allEvents.filter(ev => 
-                ev.day_of_week === currentDay && isEventInWeek(ev, currentWeek)
-            );
-
-            if (todayEvents.length === 0) {
-                this.setData({ nextCourse: null, isTodayFree: true });
+                    this.closeOverlayImmediately();
+                }, 240);
                 return;
             }
 
-            for (const ev of todayEvents) {
-                const startTimeStr = PERIOD_MAP[ev.time.period_start].start;
-                const [h, m] = startTimeStr.split(':').map(Number);
-                const eventTotalMins = h * 60 + m;
-                const diffMins = eventTotalMins - currentTotalMins;
-
-                // 状态判断：尊重用户设置的提前提醒时间
-                if (diffMins > 0 && diffMins < minDiff) {
-                    minDiff = diffMins;
-                    next = {
-                        ...ev,
-                        startTime: startTimeStr,
-                        location: ev.location?.building ? `${ev.location.building}${ev.location.room || ''}` : (ev.location?.raw || '未知'),
-                        countdown: diffMins > 60 ? `约 ${Math.floor(diffMins / 60)} 小时后` : `${diffMins} 分钟后`,
-                        isUpcoming: diffMins <= leadMins // 新增属性：是否处于即将开始状态
-                    };
-                }
+            if (typeof app.notifyMsgBoxStateChange === 'function') {
+                app.notifyMsgBoxStateChange({ hasNewMsg: false });
             }
-            this.setData({ nextCourse: next, isTodayFree: false });
-        },
-
-        fetchPublicEvents() {
-            // 已脱离后端，直接使用本地精选 Mock 数据提供预览
-            const mockEvents = [
-                {
-                    id: 'm1',
-                    event_name: '期末统考：深度学习概论',
-                    event_date: '2026-06-15T09:00:00',
-                    date_formatted: '2026-06-15',
-                    location: '大礼堂 A-101',
-                    description: '请携带学生证准时参加。'
-                },
-                {
-                    id: 'm2',
-                    event_name: '校园开放日：未来科技展',
-                    event_date: '2026-04-20T14:00:00',
-                    date_formatted: '2026-04-20',
-                    location: '科技馆 2 楼',
-                    description: '体验最先进的人工智能交互设备。'
-                }
-            ];
-            
+            if (this.data.assistUnreadCount > 0) {
+                this.markAssistAlertsRead();
+            }
             this.setData({
-                publicEvents: mockEvents,
-                currentEvent: mockEvents[0],
-                currentEventIndex: 0
+                clickX: this._lastX + 40,
+                clickY: this._lastY + 28,
+                showMsgBox: true,
+                msgBoxAnimateClass: 'animate-ripple',
+                hasNewMsg: false,
+                isAnimating: true,
             });
-            console.log('✅ 已切换至本地全量数据模式，无需运行后端服务。');
+            setTimeout(() => {
+                this.setData({ isAnimating: false });
+            }, 240);
         },
 
-        rotateEvent() {
-            const events = this.data.publicEvents;
-            if (events && events.length > 1) {
-                let nextIndex = (this.data.currentEventIndex + 1) % events.length;
-                this.setData({
-                    currentEventIndex: nextIndex,
-                    currentEvent: events[nextIndex]
-                });
+        closeOverlayImmediately() {
+            this.setData({
+                showMsgBox: false,
+                msgBoxAnimateClass: '',
+                isAnimating: false,
+            });
+        },
+
+        // 已迁移至 calculateNextCourse 和 generateTips
+
+
+        rotateTip() {
+            const tips = this.data.tips;
+            if (!tips || tips.length < 2) {
+                return;
             }
-        }
-    }
+            const nextIndex = (this.data.currentTipIndex + 1) % tips.length;
+            this.setData({
+                currentTipIndex: nextIndex,
+                currentTip: tips[nextIndex],
+            });
+        },
+
+        openNotification(event) {
+            const item = event.currentTarget.dataset.item;
+            if (item && item.isSign) {
+                this.openSignAlert(item);
+            }
+        },
+
+        openSignAlert(item) {
+            if (!item) {
+                return;
+            }
+
+            if (item.activeId) {
+                this.markAssistAlertsRead(item.activeId);
+            }
+
+            if (!item.canOpen) {
+                wx.showModal({
+                    title: '当前暂不支持',
+                    content: item.helperText || '这类签到当前还不能直接在小程序里完成。',
+                    showCancel: false,
+                });
+                return;
+            }
+
+            const query = [
+                `courseId=${encodeURIComponent(item.courseId || '')}`,
+                `activeId=${encodeURIComponent(item.activeId || '')}`,
+                `courseName=${encodeURIComponent(item.courseName || '')}`,
+                `activityName=${encodeURIComponent(item.activityName || '')}`,
+                `signType=${encodeURIComponent(item.signType || '')}`,
+            ].join('&');
+
+            this.closeOverlayImmediately();
+            wx.navigateTo({
+                url: `/pages/assist/sign/index?${query}`,
+            });
+        },
+
+        openAssistHome() {
+            this.closeOverlayImmediately();
+            wx.switchTab({
+                url: '/pages/assist/index/index',
+            });
+        },
+
+        clearScheduleCache() {
+            wx.showModal({
+                title: '确认清空？',
+                content: '这将从本地清除已解析的课表数据，你需要重新上传或同步。',
+                confirmColor: '#ff3b30',
+                success: (res) => {
+                    if (res.confirm) {
+                        // 1. 清理 Storage
+                        wx.removeStorageSync('schedule_data');
+                        wx.removeStorageSync('schedule_id');
+                        
+                        // 2. 清理全局变量
+                        app.globalData.scheduleData = null;
+                        app.globalData.scheduleId = null;
+                        
+                        // 3. 即时刷新 UI (重算周次并更新卡片)
+                        const startStr = this.data.semesterStart || '2026-03-02';
+                        const semesterStart = new Date(`${startStr}T00:00:00`);
+                        const now = new Date();
+                        const diffDays = Math.floor((now.getTime() - semesterStart.getTime()) / (24 * 3600 * 1000));
+                        const currentWeek = Math.max(1, Math.min(25, Math.floor(diffDays / 7) + 1));
+                        
+                        const nextData = this.calculateNextCourse(currentWeek);
+                        this.setData({ 
+                            currentWeek,
+                            ...nextData,
+                        });
+
+                        // 4. 同步刷新当前页面（如果它是课表页）
+                        const pages = getCurrentPages();
+                        const curPage = pages[pages.length - 1];
+                        if (curPage && typeof curPage.loadScheduleData === 'function') {
+                            curPage.loadScheduleData();
+                        }
+
+                        wx.showToast({
+                            title: '已重置本地数据',
+                            icon: 'success'
+                        });
+                    }
+                }
+            });
+        },
+    },
 });

@@ -1,21 +1,27 @@
 /* components/msg-box/msg-box.wxss */
 .msg-box-container {
   display: block;
-  --bg-fog: rgba(242, 242, 247, 0.85); /* iOS System Gray 6 (Alpha) */
-  --polar-gray: #E5E5EA; /* iOS System Gray 5 */
+  --bg-fog: rgba(242, 242, 247, 0.85);
+  --polar-gray: #E5E5EA;
   --card-shadow: 0 16rpx 48rpx rgba(0,0,0,0.08);
+  --brand-green: #34C759;
+  --text-main: #1F2937;
+  --text-sub: #667085;
 }
 
 .movable-area {
   position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   pointer-events: none;
   z-index: 9999;
 }
 
 .floating-btn {
-  width: 110rpx; height: 110rpx;
+  width: 110rpx;
+  height: 110rpx;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   border-radius: 50%;
@@ -27,25 +33,37 @@
   pointer-events: auto;
 }
 
-.no-transition { transition: none !important; }
+.no-transition {
+  transition: none !important;
+}
 
-.msg-icon-wrapper { position: relative; }
-.msg-icon { font-size: 54rpx; filter: drop-shadow(0 4rpx 8rpx rgba(0,0,0,0.1)); }
+.msg-icon-wrapper {
+  position: relative;
+}
+
+.msg-icon {
+  font-size: 54rpx;
+  filter: drop-shadow(0 4rpx 8rpx rgba(0,0,0,0.1));
+}
+
 .msg-dot {
   position: absolute;
-  top: 4rpx; right: 4rpx;
-  width: 18rpx; height: 18rpx;
+  top: 4rpx;
+  right: 4rpx;
+  width: 18rpx;
+  height: 18rpx;
   background: #ff4757;
   border-radius: 50%;
   border: 3rpx solid #fff;
   box-shadow: 0 2rpx 6rpx rgba(255, 71, 87, 0.4);
 }
 
-/* Overlay - Premium Design */
 .msg-overlay {
   position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   background: var(--bg-fog);
   backdrop-filter: blur(20px);
   z-index: 10000;
@@ -53,15 +71,14 @@
   flex-direction: column;
   visibility: hidden;
   opacity: 0;
-  padding: 40rpx;
+  padding: 40rpx 0;
   box-sizing: border-box;
-  will-change: clip-path, opacity; /* 开启 GPU 加速，优化 Backdrop-filter 性能 */
+  will-change: clip-path, opacity;
 }
 
-.msg-overlay.show { 
-  /* 移除全局 transition，一切交给水波纹关键帧处理，避免状态竞争 */
-  visibility: visible; 
-  opacity: 1; 
+.msg-overlay.show {
+  visibility: visible;
+  opacity: 1;
 }
 
 .msg-header {
@@ -70,18 +87,36 @@
   align-items: center;
   margin-top: calc(env(safe-area-inset-top) + 20rpx);
   margin-bottom: 60rpx;
+  padding: 0 40rpx;
+  box-sizing: border-box;
 }
 
 .msg-header.is-custom-nav {
   margin-top: calc(env(safe-area-inset-top) + 110rpx);
 }
 
-.header-left { display: flex; flex-direction: column; }
-.msg-title { font-size: 60rpx; font-weight: 800; color: var(--text-main); letter-spacing: -2rpx; }
-.msg-subtitle { font-size: 24rpx; color: var(--text-sub); font-weight: 500; margin-top: 4rpx; }
+.header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.msg-title {
+  font-size: 60rpx;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -2rpx;
+}
+
+.msg-subtitle {
+  font-size: 24rpx;
+  color: var(--text-sub);
+  font-weight: 500;
+  margin-top: 4rpx;
+}
 
 .btn-close-msg {
-  width: 80rpx; height: 80rpx;
+  width: 80rpx;
+  height: 80rpx;
   background: var(--polar-gray);
   border-radius: 50%;
   display: flex;
@@ -91,9 +126,19 @@
   color: var(--text-sub);
 }
 
-.msg-content-scroll { flex: 1; height: 0; }
+.msg-scroll-area {
+  flex: 1;
+  height: 0;
+}
 
-.msg-section { margin-bottom: 50rpx; }
+.msg-content {
+  padding-bottom: 120rpx;
+}
+
+.msg-section {
+  margin: 0 40rpx 50rpx;
+}
+
 .section-label {
   font-size: 20rpx;
   font-weight: 800;
@@ -104,13 +149,128 @@
   display: block;
 }
 
-/* Cards */
-.msg-card {
+.msg-card,
+.assist-card {
   background: #fff;
   border-radius: 40rpx;
   padding: 44rpx;
   box-shadow: var(--card-shadow);
   border: 1rpx solid rgba(0,0,0,0.02);
+}
+
+/* --- 通知列表整合样式 --- */
+.notification-item {
+  background: #fff;
+  border-radius: 36rpx;
+  padding: 30rpx;
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.02);
+  border: 1rpx solid rgba(0,0,0,0.02);
+  transition: all 0.2s ease;
+}
+
+.notification-item:active {
+  background: #f2f2f7;
+  transform: scale(0.98);
+}
+
+.noti-icon-box {
+  width: 84rpx;
+  height: 84rpx;
+  background: #f2f2f7;
+  border-radius: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 26rpx;
+  flex-shrink: 0;
+}
+
+.noti-icon {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.notification-item.is-sign .noti-icon-box {
+  background: rgba(52, 199, 89, 0.12);
+}
+
+.notification-item.is-sign .noti-icon {
+  color: var(--brand-green);
+}
+
+.noti-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.noti-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6rpx;
+}
+
+.noti-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.noti-time {
+  font-size: 20rpx;
+  color: var(--text-sub);
+  margin-left: 14rpx;
+  font-weight: 500;
+}
+
+.noti-desc {
+  font-size: 24rpx;
+  color: var(--text-sub);
+  line-height: 1.6;
+  display: block;
+}
+
+.notif-action-tag {
+  font-size: 22rpx;
+  color: var(--brand-green);
+  font-weight: 800;
+  margin-left: 20rpx;
+  align-self: center;
+  background: rgba(52, 199, 89, 0.08);
+  padding: 8rpx 20rpx;
+  border-radius: 99rpx;
+  white-space: nowrap;
+}
+
+.is-empty-state {
+  padding: 80rpx 40rpx;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1rpx dashed var(--polar-gray);
+}
+
+
+.empty-card {
+  text-align: left;
+}
+
+.empty-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-main);
+  display: block;
+}
+
+.empty-msg {
+  font-size: 24rpx;
+  color: var(--text-sub);
+  line-height: 1.7;
+  display: block;
+  margin-top: 12rpx;
 }
 
 .next-course-card {
@@ -122,14 +282,45 @@
   background: #fff;
   color: var(--text-sub);
   text-align: center;
-  padding: 80rpx 44rpx;
+  padding: 44rpx;
 }
 
-.card-status-label { font-size: 20rpx; font-weight: 800; opacity: 0.8; letter-spacing: 2rpx; margin-bottom: 12rpx; display: block; }
-.course-large-name { font-size: 48rpx; font-weight: 800; line-height: 1.2; margin-bottom: 30rpx; display: block; }
-.course-meta-row { display: flex; gap: 30rpx; margin-bottom: 30rpx; }
-.meta-item { display: flex; align-items: center; font-size: 26rpx; opacity: 0.9; font-weight: 500; }
-.meta-icon { margin-right: 10rpx; }
+.card-status-label {
+  font-size: 20rpx;
+  font-weight: 800;
+  opacity: 0.8;
+  letter-spacing: 2rpx;
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.course-large-name {
+  font-size: 48rpx;
+  font-weight: 800;
+  line-height: 1.25;
+  margin-bottom: 24rpx;
+  display: block;
+  word-break: break-word; /* 保证长课程名正常折行 */
+}
+
+.course-meta-row {
+  display: flex;
+  flex-wrap: wrap; /* 解决地点过长时的溢出问题 */
+  gap: 20rpx 30rpx;
+  margin-bottom: 30rpx;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.meta-icon {
+  margin-right: 10rpx;
+}
 
 .countdown-tag {
   background: rgba(255,255,255,0.25);
@@ -140,7 +331,6 @@
   display: inline-block;
 }
 
-/* Public Event Card */
 .public-event-card {
   background: #fff;
   border-radius: 40rpx;
@@ -150,73 +340,265 @@
   overflow: hidden;
 }
 
-.event-indicator { position: absolute; right: 40rpx; top: 40rpx; display: flex; gap: 8rpx; }
-.dot { width: 8rpx; height: 8rpx; background: var(--polar-gray); border-radius: 50%; transition: all 0.3s; }
-.dot.active { width: 30rpx; background: var(--brand-green); border-radius: 4rpx; }
-
-.event-title { font-size: 34rpx; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 16rpx; }
-.event-desc { font-size: 26rpx; color: var(--text-sub); line-height: 1.6; display: block; margin-bottom: 30rpx; }
-.event-footer { display: flex; gap: 30rpx; border-top: 1rpx solid var(--polar-gray); padding-top: 24rpx; }
-.event-date, .event-loc { font-size: 22rpx; color: var(--text-sub); font-weight: 500; }
-
-/* Notifications */
-.notification-item {
-  background: #fff;
-  border-radius: 32rpx;
-  padding: 30rpx;
+.event-indicator {
+  position: absolute;
+  right: 40rpx;
+  top: 40rpx;
   display: flex;
-  align-items: center;
-  margin-bottom: 20rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.02);
+  gap: 8rpx;
 }
 
-.noti-icon { font-size: 40rpx; margin-right: 24rpx; width: 80rpx; height: 80rpx; background: var(--bg-fog); border-radius: 20rpx; display: flex; align-items: center; justify-content: center; }
-.noti-body { flex: 1; }
-.noti-title { font-size: 28rpx; font-weight: 700; color: var(--text-main); display: block; }
-.noti-desc { font-size: 22rpx; color: var(--text-sub); margin-top: 4rpx; display: block; }
+.dot {
+  width: 8rpx;
+  height: 8rpx;
+  background: var(--polar-gray);
+  border-radius: 50%;
+  transition: all 0.3s;
+}
 
-/* Water Ripple Animation (Fixed Flickering & Reliability) */
+.dot.active {
+  width: 30rpx;
+  background: var(--brand-green);
+  border-radius: 4rpx;
+}
+
+.event-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--text-main);
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.event-desc {
+  font-size: 26rpx;
+  color: var(--text-sub);
+  line-height: 1.6;
+  display: block;
+  margin-bottom: 30rpx;
+}
+
+.event-footer {
+  display: flex;
+  gap: 30rpx;
+  border-top: 1rpx solid var(--polar-gray);
+  padding-top: 24rpx;
+}
+
+.event-date,
+.event-loc {
+  font-size: 22rpx;
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+/* 已迁移至上方统一通知样式区 */
+
 @keyframes waterRippleIn {
-  0% { 
+  0% {
     clip-path: circle(0% at var(--circle-x) var(--circle-y));
     opacity: 0;
   }
-  20% { opacity: 1; }
-  100% { 
+  20% {
+    opacity: 1;
+  }
+  100% {
     clip-path: circle(150% at var(--circle-x) var(--circle-y));
     opacity: 1;
   }
 }
 
 @keyframes waterRippleOut {
-  0% { 
+  0% {
     clip-path: circle(150% at var(--circle-x) var(--circle-y));
     opacity: 1;
   }
-  80% { opacity: 1; }
-  100% { 
+  80% {
+    opacity: 1;
+  }
+  100% {
     clip-path: circle(0% at var(--circle-x) var(--circle-y));
     opacity: 0;
   }
 }
 
-.animate-ripple { 
-  animation: waterRippleIn 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards; 
+.animate-ripple {
+  animation: waterRippleIn 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards;
 }
 
-.animate-ripple-out { 
-  animation: waterRippleOut 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards; 
+.animate-ripple-out {
+  animation: waterRippleOut 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards;
 }
 
 .upcoming-icon {
   margin-right: 8rpx;
   animation: pulse-ring 2s infinite;
   display: inline-block;
-  color: #FF9500; /* iOS Warning Orange */
+  color: #FF9500;
 }
 
+.msg-icon {
+  font-size: 40rpx;
+}
+
+/* --- 配置中心 (Settings Section) --- */
+.settings-card {
+  padding: 0 30rpx !important;
+  background: #ffffff;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 26rpx 0;
+  min-height: 104rpx;
+  box-sizing: border-box;
+}
+
+.settings-row.divider {
+  border-top: 1rpx solid #F2F2F7;
+}
+
+.settings-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1c1c1e;
+}
+
+.settings-title.is-danger {
+  color: #ff3b30;
+}
+
+.settings-desc {
+  font-size: 22rpx;
+  color: #8e8e93;
+  margin-top: 6rpx;
+}
+
+.settings-value {
+  display: flex;
+  align-items: center;
+  font-size: 28rpx;
+  color: #8e8e93;
+}
+
+.arrow-right {
+  font-size: 32rpx;
+  color: #c7c7cc;
+  margin-left: 12rpx;
+  line-height: 1;
+}
+
+.badge-count {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-weight: 700;
+}
+
+.badge-count.success {
+  background: #e8f8f5;
+  color: #34c759;
+}
+
+.badge-count.warn {
+  background: #fff5f5;
+  color: #ff3b30;
+}
+
+.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* --- 内联卡片页眉 (Integrated Semester Info) --- */
+.card-inner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 30rpx;
+}
+
+.inner-week-title {
+  font-size: 26rpx;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 1rpx;
+}
+
+.inner-date-val {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.inner-date-val:active {
+  opacity: 0.5;
+}
+
+/* --- 内联卡片页眉 (Integrated Semester Info) --- */
+.card-inner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 30rpx;
+  margin-top: -10rpx;
+}
+
+.inner-week-title {
+  font-size: 26rpx;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 1rpx;
+}
+
+.inner-date-val {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+
+/* 无数据白色卡片适配 */
+.next-course-card.is-empty .card-inner-header {
+  border-bottom-color: #f2f2f7;
+}
+
+.next-course-card.is-empty .inner-week-title {
+  color: #1c1c1e;
+}
+
+.next-course-card.is-empty .inner-date-val {
+  color: #8e8e93;
+}
+
+.next-course-card {
+  position: relative;
+}
+
+
+
+
 @keyframes pulse-ring {
-  0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.7; }
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
 }

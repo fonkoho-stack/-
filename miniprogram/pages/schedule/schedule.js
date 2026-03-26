@@ -55,6 +55,12 @@ Page({
         wx.setStorageSync('schedule_view_mode', mode);
     },
 
+    goToSettings() {
+        wx.navigateTo({
+            url: '/pages/settings/settings'
+        });
+    },
+
     initDate() {
         const now = new Date();
         const currentDay = now.getDay() === 0 ? 7 : now.getDay();

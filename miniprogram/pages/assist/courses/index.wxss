@@ -1,0 +1,172 @@
+.page {
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.hero {
+  background: linear-gradient(135deg, #34c759 0%, #2dbb54 100%);
+  color: #fff;
+  border-radius: 32rpx;
+  padding: 36rpx 32rpx;
+  box-shadow: 0 16rpx 36rpx rgba(52, 199, 89, 0.18);
+}
+
+.hero-tag {
+  display: inline-block;
+  font-size: 22rpx;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  margin-bottom: 18rpx;
+}
+
+.hero-title {
+  font-size: 48rpx;
+  font-weight: 800;
+  margin-bottom: 16rpx;
+}
+
+.hero-desc {
+  font-size: 26rpx;
+  line-height: 1.7;
+  opacity: 0.96;
+}
+
+.loading-block {
+  margin-top: 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  color: #666;
+}
+
+.spinner {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  border: 6rpx solid #dfe7e2;
+  border-top-color: #34c759;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.empty-card,
+.course-card {
+  margin-top: 28rpx;
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 30rpx;
+  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.04);
+}
+
+.empty-card {
+  text-align: center;
+}
+
+.empty-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #222;
+}
+
+.empty-desc {
+  margin-top: 18rpx;
+  font-size: 26rpx;
+  color: #777;
+  line-height: 1.7;
+}
+
+.course-list {
+  padding-bottom: 32rpx;
+}
+
+.course-main {
+  display: flex;
+  gap: 22rpx;
+}
+
+.cover {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 24rpx;
+  background: #eef4ef;
+  flex-shrink: 0;
+}
+
+.cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42rpx;
+  font-weight: 800;
+  color: #34c759;
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: #202124;
+  line-height: 1.45;
+}
+
+.teacher {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  color: #4c5b50;
+}
+
+.note {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #7b8086;
+  line-height: 1.5;
+}
+
+.course-footer {
+  margin-top: 22rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f0f2f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.time {
+  flex: 1;
+  font-size: 22rpx;
+  color: #90959b;
+}
+
+.action {
+  flex-shrink: 0;
+  color: #34c759;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+button {
+  border: none;
+  margin-top: 24rpx;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  background: #34c759;
+  color: #fff;
+}
+
+button::after {
+  border: none;
+}

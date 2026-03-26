@@ -1,18 +1,20 @@
-<!--components/msg-box/msg-box.wxml-->
 <view class="msg-box-container">
   <movable-area class="movable-area">
-    <movable-view class="floating-btn {{(isSyncing || isDragging) ? 'no-transition' : ''}}" 
-      direction="all" 
-      x="{{btnX}}" y="{{btnY}}" 
+    <movable-view
+      class="floating-btn {{(isSyncing || isDragging) ? 'no-transition' : ''}}"
+      direction="all"
+      x="{{btnX}}"
+      y="{{btnY}}"
       animation="{{useAnimation}}"
-      bindchange="onBtnMove" 
-      bindtap="toggleMsgBox" 
+      bindchange="onBtnMove"
+      bindtap="toggleMsgBox"
       bindtouchstart="onTouchStart"
       bindtouchend="onTouchEnd"
       inertia="{{true}}"
       out-of-bounds="{{true}}"
       damping="{{40}}"
-      friction="{{2}}">
+      friction="{{2}}"
+    >
       <view class="msg-icon-wrapper">
         <text class="msg-icon">✉️</text>
         <view class="msg-dot" wx:if="{{hasNewMsg}}"></view>
@@ -20,8 +22,10 @@
     </movable-view>
   </movable-area>
 
-  <!-- 全屏消息中心 (Premium 版) -->
-  <view class="msg-overlay {{showMsgBox ? 'show' : ''}} {{msgBoxAnimateClass}}" style="--circle-x: {{clickX}}px; --circle-y: {{clickY}}px;">
+  <view
+    class="msg-overlay {{showMsgBox ? 'show' : ''}} {{msgBoxAnimateClass}}"
+    style="--circle-x: {{clickX}}px; --circle-y: {{clickY}}px;"
+  >
     <view class="msg-header {{customNav ? 'is-custom-nav' : ''}}">
       <view class="header-left">
         <text class="msg-title">消息中心</text>
@@ -30,61 +34,132 @@
       <view class="btn-close-msg" bindtap="toggleMsgBox">✕</view>
     </view>
 
-    <scroll-view scroll-y class="msg-content-scroll">
-      <!-- 1. 下一节课卡片 -->
-      <view class="msg-section">
-        <text class="section-label">今日焦点</text>
-        <view class="msg-card next-course-card {{nextCourse ? '' : 'is-empty'}}">
-          <block wx:if="{{nextCourse}}">
-            <text class="card-status-label">NEXT LESSON</text>
-            <text class="course-large-name">{{nextCourse.course_name}}</text>
-            <view class="course-meta-row">
-              <view class="meta-item"><text class="meta-icon">🕒</text><text>{{nextCourse.startTime}}</text></view>
-              <view class="meta-item"><text class="meta-icon">📍</text><text>{{nextCourse.location}}</text></view>
+    <scroll-view class="msg-scroll-area" scroll-y enable-passive scroll-anchoring scroll-into-view="{{scrollTarget}}" scroll-with-animation>
+      <view class="msg-content">
+        <!-- 通知公告 -->
+        <view class="msg-section" wx:if="{{tips.length > 0}}">
+          <text class="section-label">通知公告</text>
+          <view class="public-event-card">
+            <view class="event-indicator">
+              <view
+                class="dot {{index === currentTipIndex ? 'active' : ''}}"
+                wx:for="{{tips}}"
+                wx:key="id"
+              ></view>
             </view>
-            <view class="countdown-tag">
-              <text class="upcoming-icon" wx:if="{{nextCourse.isUpcoming}}">🔔</text>
-              <text>{{nextCourse.countdown}} 上课</text>
+            <view class="event-body" wx:if="{{currentTip}}">
+              <text class="event-title">{{currentTip.title}}</text>
+              <text class="event-desc">{{currentTip.content}}</text>
+              <view class="event-footer">
+                <text class="event-date">{{currentTip.footerLeft}}</text>
+                <text class="event-loc">{{currentTip.footerRight}}</text>
+              </view>
             </view>
-          </block>
-          <block wx:elif="{{!hasSchedule}}">
-            <text class="empty-msg">尚未上传课表 📤</text>
-          </block>
-          <block wx:elif="{{isTodayFree}}">
-            <text class="empty-msg">今日无课，尽情享受吧 ☕️</text>
+          </view>
+        </view>
+        
+        <!-- 今日焦点 -->
+        <view class="msg-section">
+          <text class="section-label">今日焦点</text>
+          <view class="msg-card next-course-card {{nextCourse ? '' : 'is-empty'}}">
+            <picker mode="date" value="{{semesterStart}}" bindchange="changeSemesterStart">
+              <view class="card-inner-header">
+                <text class="inner-week-title">学期第 {{currentWeek || 1}} 周</text>
+                <text class="inner-date-val">{{semesterStart}} 开学 ✎</text>
+              </view>
+            </picker>
+
+            <block wx:if="{{nextCourse}}">
+              <text class="card-status-label">NEXT LESSON</text>
+              <text class="course-large-name">{{nextCourse.course_name}}</text>
+              <view class="course-meta-row">
+                <view class="meta-item">
+                  <text class="meta-icon">🕒</text>
+                  <text>{{nextCourse.startTime}}</text>
+                </view>
+                <view class="meta-item">
+                  <text class="meta-icon">📍</text>
+                  <text>{{nextCourse.location}}</text>
+                </view>
+              </view>
+              <view class="countdown-tag">
+                <text class="upcoming-icon" wx:if="{{nextCourse.isUpcoming}}">🔔</text>
+                <text>{{nextCourse.countdown}} 上课</text>
+              </view>
+            </block>
+            <block wx:elif="{{!hasSchedule}}">
+              <text class="empty-msg">你还没有导入课表</text>
+            </block>
+            <block wx:elif="{{isTodayFree}}">
+              <text class="empty-msg">今天没有课，消息盒子会继续关注签到提醒。</text>
+            </block>
+            <block wx:else>
+              <text class="empty-msg">今天的课程已经结束</text>
+            </block>
+          </view>
+        </view>
+
+        <!-- 通知列表 -->
+        <view class="msg-section">
+          <text class="section-label">通知列表</text>
+          <block wx:if="{{notifications.length > 0}}">
+            <view class="notification-item {{item.isSign ? 'is-sign' : ''}}" 
+                  wx:for="{{notifications}}" wx:key="id" 
+                  bindtap="openNotification" data-item="{{item}}">
+              <view class="noti-icon-box">
+                <text class="noti-icon">{{item.icon}}</text>
+              </view>
+              <view class="noti-body">
+                <view class="noti-header">
+                  <text class="noti-title">{{item.title}}</text>
+                  <text class="noti-time">{{item.timeText || ''}}</text>
+                </view>
+                <text class="noti-desc">{{item.desc}}</text>
+              </view>
+              <view class="notif-action-tag" wx:if="{{item.isSign}}">处理 ›</view>
+            </view>
           </block>
           <block wx:else>
-            <text class="empty-msg">今日课程已全部结束 🍻</text>
+            <view class="msg-card is-empty-state">
+              <text class="empty-msg">暂时没有新通知</text>
+            </view>
           </block>
         </view>
-      </view>
 
-      <!-- 2. 校园公共事件 (轮播显示) -->
-      <view class="msg-section" wx:if="{{publicEvents.length > 0}}">
-        <text class="section-label">校园动态</text>
-        <view class="public-event-card">
-          <view class="event-indicator">
-            <view class="dot {{index === currentEventIndex ? 'active' : ''}}" wx:for="{{publicEvents}}" wx:key="index"></view>
-          </view>
-          <view class="event-body" wx:if="{{currentEvent}}">
-            <text class="event-title">{{currentEvent.title}}</text>
-            <text class="event-desc">{{currentEvent.content}}</text>
-            <view class="event-footer">
-              <text class="event-date">📅 {{currentEvent.date_formatted}}</text>
-              <text class="event-loc">📍 {{currentEvent.location}}</text>
+        <!-- 偏好设置 -->
+        <view class="msg-section" id="settings-section" style="margin-top: 60rpx;">
+          <text class="section-label">偏好设置</text>
+          <view class="msg-card settings-card">
+            <view class="settings-row">
+              <view class="settings-main">
+                <text class="settings-title">课前提醒</text>
+                <text class="settings-desc">通过微信服务通知推送</text>
+              </view>
+              <switch checked="{{reminderEnabled}}" bindchange="toggleReminder" color="#34C759" style="zoom: 0.8;"></switch>
             </view>
-          </view>
-        </view>
-      </view>
+            
+            <picker bindchange="changeLeadTime" value="{{leadIndex}}" range="{{leadOptions}}" range-key="label" disabled="{{!reminderEnabled}}">
+              <view class="settings-row divider {{!reminderEnabled ? 'is-disabled' : ''}}">
+                <text class="settings-title">提交提前时间</text>
+                <view class="settings-value">
+                  <text>{{leadOptions[leadIndex].label}}</text>
+                  <text class="arrow-right">›</text>
+                </view>
+              </view>
+            </picker>
 
-      <!-- 3. 系统通知 -->
-      <view class="msg-section">
-        <text class="section-label">通知列表</text>
-        <view class="notification-item" wx:for="{{notifications}}" wx:key="id">
-          <view class="noti-icon">{{item.icon}}</view>
-          <view class="noti-body">
-            <text class="noti-title">{{item.title}}</text>
-            <text class="noti-desc">{{item.desc}}</text>
+            <view class="settings-row divider" bindtap="requestSubscribe">
+              <text class="settings-title">剩余提醒额度</text>
+              <view class="settings-value">
+                <text class="badge-count {{subscriptionCount > 0 ? 'success' : 'warn'}}">{{subscriptionCount}} 次</text>
+                <text class="arrow-right">›</text>
+              </view>
+            </view>
+            
+            <view class="settings-row" bindtap="clearScheduleCache">
+              <text class="settings-title is-danger">重置本地课表数据</text>
+              <text class="arrow-right">›</text>
+            </view>
           </view>
         </view>
       </view>

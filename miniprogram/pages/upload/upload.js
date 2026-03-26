@@ -66,7 +66,8 @@ Page({
                     success: (modalRes) => {
                         this.setData({ uploading: false, progressPercent: 0 });
                         if (modalRes.confirm) {
-                            wx.switchTab({ url: '/pages/settings/settings' });
+                            app.globalData.triggerRemindGuide = true;
+                            wx.switchTab({ url: '/pages/schedule/schedule' });
                         } else {
                             wx.switchTab({ url: '/pages/schedule/schedule' });
                         }
