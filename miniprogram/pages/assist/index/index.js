@@ -56,7 +56,7 @@ Page({
     },
 
     async onPullDownRefresh() {
-        await this.refreshDashboard(false);
+        await this.refreshDashboard(false, true);
         wx.stopPullDownRefresh();
     },
 
@@ -88,7 +88,7 @@ Page({
         });
     },
 
-    async refreshDashboard(showLoading = true) {
+    async refreshDashboard(showLoading = true, forceRefresh = false) {
         if (showLoading) {
             this.setData({ loading: true });
         }
@@ -110,7 +110,7 @@ Page({
                 return;
             }
 
-            await this.loadSignSummary(true);
+            await this.loadSignSummary(forceRefresh, true);
             this.setData({ loading: false });
         } catch (error) {
             const detail = normalizeError(error, '加载课堂助手失败');
@@ -122,9 +122,10 @@ Page({
         }
     },
 
-    async loadSignSummary(silent = false) {
+    async loadSignSummary(forceRefresh = false, silent = false) {
         try {
-            const summary = await callAssist('get_sign_notifications');
+            const actionName = forceRefresh ? 'refresh_sign_notifications' : 'get_sign_notifications';
+            const summary = await callAssist(actionName);
             setAlertCache(summary);
             this.applyAlertSummary(summary);
             return summary;
@@ -281,6 +282,45 @@ Page({
         }
     },
 
+    async chooseDefaultLocation() {
+        try {
+            const location = await new Promise((resolve, reject) => {
+                wx.chooseLocation({
+                    success: resolve,
+                    fail: reject,
+                });
+            });
+            const { latitude, longitude, address, name } = location;
+            wx.showLoading({ title: '保存中', mask: true });
+            const result = await callAssist('set_default_location', {
+                latitude,
+                longitude,
+                address: name || address || '预设位置',
+            });
+            wx.hideLoading();
+            const account = this.data.account;
+            if (account) {
+                account.defaultLocation = result.defaultLocation;
+                this.setData({ account });
+                setAccountCache(account);
+                app.globalData.assistAccount = account;
+            }
+            wx.showToast({
+                title: '位置已保存',
+                icon: 'success',
+            });
+        } catch (error) {
+            wx.hideLoading();
+            if (error && error.errMsg && (error.errMsg.includes('cancel') || error.errMsg.includes('fail auth'))) {
+                return; // 用户取消或未授权不报错
+            }
+            const detail = normalizeError(error, '保存位置失败');
+            wx.showToast({
+                title: detail.message,
+                icon: 'none',
+            });
+        }
+    },
 
     async toggleAutoSign(event) {
         const enabled = !!event.detail.value;
@@ -288,7 +328,7 @@ Page({
         try {
             await callAssist('set_auto_sign_config', {
                 enabled,
-                types: ['normal', 'photo', 'code'],
+                types: ['normal', 'photo', 'code', 'pattern', 'location'],
             });
             wx.showToast({
                 title: enabled ? '自动签到已开启' : '自动签到已关闭',

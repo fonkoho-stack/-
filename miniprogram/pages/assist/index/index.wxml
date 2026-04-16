@@ -9,7 +9,7 @@
     </view>
 
     <view class="hero-desc" wx:if="{{account}}">
-      定位、扫码签到暂不支持
+      大多数签到类型均可通过预设信息全自动或一键完成
     </view>
     <view class="hero-desc" wx:else>
       绑定超星账号后，可在小程序里直接处理常用签到。
@@ -64,7 +64,7 @@
       <view class="cell">
         <view class="cell-label-col">
           <text class="cell-label">自动签到</text>
-          <text class="cell-sub">普通、拍照、签到码、手势签到将自动处理</text>
+          <text class="cell-sub">普通、拍照、数字码、手势、位置等均可代办</text>
         </view>
         <switch checked="{{autoSignEnabled}}" color="#34C759" bindchange="toggleAutoSign"></switch>
       </view>
@@ -74,6 +74,15 @@
         <view class="cell-label-col">
           <text class="cell-label">📷 更新预存照片</text>
           <text class="cell-sub">用于自动/手动拍照签到时的默认图片</text>
+        </view>
+        <text class="cell-arrow">›</text>
+      </view>
+
+      <view class="cell" hover-class="cell-hover" bindtap="chooseDefaultLocation">
+        <view class="cell-label-col">
+          <text class="cell-label">📍 设置预设位置</text>
+          <text class="cell-sub" wx:if="{{account.defaultLocation}}">{{account.defaultLocation.address}}</text>
+          <text class="cell-sub" wx:else>用于自动/手动位置签到</text>
         </view>
         <text class="cell-arrow">›</text>
       </view>
@@ -91,7 +100,7 @@
             <text class="log-course">{{item.courseName}}</text>
             <text class="log-status log-status-{{item.status}}">{{item.status === 'success' ? '✅ 成功' : item.status === 'failed' ? '❌ 失败' : item.status === 'skipped' ? '⏭ 跳过' : '✔ 已签'}}</text>
           </view>
-          <view class="log-detail">{{item.activityName}} · {{item.signType === 'photo' ? '拍照' : item.signType === 'code' ? '免码' : '普通'}} · {{item.attemptedAt}}</view>
+          <view class="log-detail">{{item.activityName}} · {{item.signType === 'photo' ? '拍照' : item.signType === 'code' ? '数字码' : item.signType === 'location' ? '位置' : item.signType === 'pattern' ? '手势' : '普通'}} · {{item.attemptedAt}}</view>
           <view class="log-detail" wx:if="{{item.status === 'failed' || item.status === 'skipped'}}">{{item.message}}</view>
         </view>
       </view>
@@ -165,10 +174,11 @@
         </view>
         <view class="feature-item">
           <view class="feature-dot"></view>
-          <text class="feature-text">支持普通签到、签到码、二维码和选图拍照签到</text>
+          <text class="feature-text">支持普通、照片、数字码、扫码、手势与位置签到</text>
         </view>
       </view>
     </view>
   </block>
 
+  <msg-box id="msgBox" customNav="{{false}}"></msg-box>
 </view>

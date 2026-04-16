@@ -49,7 +49,8 @@
     "style": "v2",
     "sitemapLocation": "sitemap.json",
     "requiredPrivateInfos": [
-        "getLocation"
+        "getLocation",
+        "chooseLocation"
     ],
     "permission": {
         "scope.userLocation": {

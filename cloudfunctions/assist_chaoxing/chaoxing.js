@@ -481,10 +481,6 @@ function parseActivityItem(item, pcItem = {}) {
         supportReason = '活动已结束';
     } else if (!signType) {
         supportReason = '暂时无法识别签到类型';
-    } else if (signType === 'pattern') {
-        supportReason = '手势签到一期暂不支持';
-    } else if (signType === 'location') {
-        supportReason = '定位签到一期暂不支持';
     } else {
         isSupported = true;
     }
@@ -554,9 +550,7 @@ async function getActivityDetail(session, { activeId, signType }) {
     } else if (detail.signType === 'pattern') {
         // 手势签到已支持自动穷举破解
     } else if (detail.signType === 'location') {
-        detail.unsupportedReason = '定位签到一期暂不支持';
-    } else if (detail.signType === 'qrcode' && detail.locationText) {
-        detail.unsupportedReason = '当前二维码签到还要求定位，一期暂不支持';
+        // 位置签到已支持
     }
 
     if (!detail.unsupportedReason && detail.needCaptcha) {
@@ -611,6 +605,35 @@ async function normalSign(session, { courseId, activeId, accountUid, accountName
     if (objectId) {
         params.objectId = objectId;
     }
+    if (validate) {
+        params.validate = validate;
+    }
+    const response = await request(session, 'https://mobilelearn.chaoxing.com/pptSign/stuSignajax', {
+        params,
+        responseType: 'text',
+    });
+    return normalizeSignResponse(response.rawBody);
+}
+
+async function locationSign(session, { courseId, activeId, accountUid, accountName, address, latitude, longitude, validate }) {
+    const params = {
+        name: accountName || '',
+        address: address || '未知位置',
+        activeId,
+        courseId: courseId || '',
+        uid: accountUid,
+        clientip: '',
+        latitude: String(latitude || '-1'),
+        longitude: String(longitude || '-1'),
+        fid: '0',
+        appType: '15',
+        ifTiJiao: '1',
+        deviceCode: buildDeviceCode(session),
+        vpProbability: '-1',
+        vpStrategy: '',
+        currentFaceId: '',
+        ifCFP: '0'
+    };
     if (validate) {
         params.validate = validate;
     }
@@ -693,7 +716,7 @@ async function resolveQrPayload(session, scannedContent) {
     return redirected;
 }
 
-async function qrCodeSign(session, { courseId, activeId, accountUid, accountName, enc, validate, enc2 }) {
+async function qrCodeSign(session, { courseId, activeId, accountUid, accountName, enc, address, latitude, longitude, validate, enc2 }) {
     const params = {
         enc,
         name: accountName || '',
@@ -710,6 +733,15 @@ async function qrCodeSign(session, { courseId, activeId, accountUid, accountName
         ifCFP: '0',
         courseId: courseId || '',
     };
+    if (address && latitude != null && longitude != null) {
+        params.location = JSON.stringify({
+            result: 1,
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+            mockData: { strategy: 0, probability: -1 },
+            address: address
+        });
+    }
     if (validate && enc2) {
         params.validate = validate;
         params.enc2 = enc2;
@@ -721,7 +753,7 @@ async function qrCodeSign(session, { courseId, activeId, accountUid, accountName
     return normalizeSignResponse(response.rawBody);
 }
 
-async function performQrSign(session, { scannedContent, courseId, activeId, expectedActiveId, accountUid, accountName }) {
+async function performQrSign(session, { scannedContent, courseId, activeId, expectedActiveId, accountUid, accountName, address, latitude, longitude }) {
     const payload = await resolveQrPayload(session, scannedContent);
     const targetActiveId = activeId || payload.activeId;
     if (expectedActiveId && payload.activeId && String(expectedActiveId) !== String(payload.activeId)) {
@@ -740,6 +772,9 @@ async function performQrSign(session, { scannedContent, courseId, activeId, expe
         accountUid,
         accountName,
         enc: payload.enc,
+        address,
+        latitude,
+        longitude,
     });
 }
 
@@ -800,6 +835,7 @@ module.exports = {
     fetchActivities,
     fetchCourses,
     fetchUserInfo,
+    locationSign,
     getActivityDetail,
     loginByPassword,
     loginBySms,

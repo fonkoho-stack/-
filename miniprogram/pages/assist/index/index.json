@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "课堂助手",
   "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark"
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "msg-box": "../../../components/msg-box/msg-box"
+  }
 }

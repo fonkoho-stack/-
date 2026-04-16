@@ -2,6 +2,9 @@ const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
+const DEFAULT_LEAD_MINUTES = 15;
+const MIN_LEAD_MINUTES = 5;
+const MAX_LEAD_MINUTES = 60;
 
 // 订阅消息模板 ID
 const TEMPLATE_ID = 'Z565zxBRTt20vIOi6Zo4S2sIqL2mghnFaRg_MPi-M9c';
@@ -51,7 +54,7 @@ exports.main = async (event, context) => {
                 continue;
             }
 
-            const leadMinutes = (reminder_settings && reminder_settings.leadMinutes) ? reminder_settings.leadMinutes : 15;
+            const leadMinutes = resolveLeadMinutes(reminder_settings);
             const semesterStartStr = (reminder_settings && reminder_settings.semesterStart) ? reminder_settings.semesterStart : '2026-03-02';
             
             // 计算当前该用户的周次
@@ -110,6 +113,21 @@ exports.main = async (event, context) => {
 /**
  * 判断课程是否在指定周次内
  */
+function resolveLeadMinutes(reminderSettings) {
+    if (!reminderSettings || typeof reminderSettings !== 'object') {
+        return DEFAULT_LEAD_MINUTES;
+    }
+    const rawValue = reminderSettings.leadMinutes !== undefined
+        ? reminderSettings.leadMinutes
+        : reminderSettings.lead_minutes;
+    const numeric = Number(rawValue);
+    if (!Number.isFinite(numeric)) {
+        return DEFAULT_LEAD_MINUTES;
+    }
+    const safe = Math.floor(numeric);
+    return Math.max(MIN_LEAD_MINUTES, Math.min(MAX_LEAD_MINUTES, safe));
+}
+
 function isEventInWeek(ev, week) {
     if (!ev.weeks) return true;
     if (ev.weeks.mode === 'range' && ev.weeks.ranges) {

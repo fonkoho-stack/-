@@ -1,9 +1,9 @@
 {
   "triggers": [
     {
-      "name": "watchSigns",
+      "name": "watchSignsDaytime",
       "type": "timer",
-      "config": "0 */10 * * * * *"
+      "config": "0 * 7-22 * * * *"
     }
   ]
 }

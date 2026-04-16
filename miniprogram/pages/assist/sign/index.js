@@ -30,6 +30,7 @@ Page({
         code: '',
         recentPhotoText: '',
         helperText: '',
+        locationResult: null,
     },
 
     onLoad(options) {
@@ -108,8 +109,14 @@ Page({
         if (detail.signType === 'code') {
             return `请输入 ${detail.numberCount || 0} 位签到码后提交。`;
         }
+        if (detail.signType === 'location') {
+            return '这是一次位置签到，可以使用预设位置或临时在地图上选点。';
+        }
         if (detail.signType === 'qrcode') {
             return '请扫描老师提供的超星二维码完成签到。';
+        }
+        if (detail.signType === 'pattern') {
+            return '这是一次手势签到，可以直接使用系统的自动穷举机制进行破解。';
         }
         return '确认信息无误后即可发起签到。';
     },
@@ -174,6 +181,40 @@ Page({
         });
     },
 
+    async chooseSignLocation() {
+        try {
+            const locationResult = await new Promise((resolve, reject) => {
+                wx.chooseLocation({
+                    success: resolve,
+                    fail: reject,
+                });
+            });
+            this.setData({ locationResult });
+        } catch (error) {
+            if (error && error.errMsg && (error.errMsg.includes('cancel') || error.errMsg.includes('fail auth'))) {
+                return;
+            }
+            const detail = normalizeError(error, '获取定位失败');
+            wx.showToast({ title: detail.message, icon: 'none' });
+        }
+    },
+
+    async submitLocation() {
+        const { locationResult, account } = this.data;
+        const target = locationResult || account.defaultLocation;
+        if (!target || !target.latitude) {
+            wx.showToast({ title: '请先选取位置', icon: 'none' });
+            return;
+        }
+        await this.submitAction('sign_location', {
+            courseId: this.data.courseId,
+            activeId: this.data.activeId,
+            latitude: target.latitude,
+            longitude: target.longitude,
+            address: target.name || target.address || '临时选取点',
+        });
+    },
+
     async scanAndSubmit() {
         try {
             const scan = await new Promise((resolve, reject) => {
@@ -196,6 +237,13 @@ Page({
             const detail = normalizeError(error, '二维码签到失败');
             wx.showToast({ title: detail.message, icon: 'none' });
         }
+    },
+
+    async submitPattern() {
+        await this.submitAction('sign_pattern', {
+            courseId: this.data.courseId,
+            activeId: this.data.activeId,
+        });
     },
 
     async submitAction(action, payload) {

@@ -58,6 +58,25 @@
       </button>
     </view>
 
+    <view class="card" wx:elif="{{detail.signType === 'location'}}">
+      <view class="section-title">定位签到</view>
+      <view class="button-row" style="margin-bottom: 24rpx; justify-content: space-between; align-items: center;">
+        <view class="pill {{locationResult || (account && account.defaultLocation && account.defaultLocation.latitude) ? 'done' : 'pending'}}">{{locationResult ? '使用临时点' : (account && account.defaultLocation && account.defaultLocation.latitude ? '使用预设点' : '尚未选择')}}</view>
+        <button class="secondary small" style="margin: 0;" bindtap="chooseSignLocation">地图选点</button>
+      </view>
+      <view class="detail-line" style="margin-bottom: 32rpx; color: #666; font-size: 26rpx;" wx:if="{{locationResult || (account && account.defaultLocation && account.defaultLocation.latitude)}}">
+        {{locationResult ? (locationResult.name || locationResult.address) : account.defaultLocation.address}}
+      </view>
+      <button
+        class="primary full"
+        bindtap="submitLocation"
+        loading="{{submitting}}"
+        disabled="{{submitting || detail.signed || detail.needCaptcha || detail.unsupportedReason || (!locationResult && (!account || !account.defaultLocation || !account.defaultLocation.latitude))}}"
+      >
+        使用选定位置签到
+      </button>
+    </view>
+
     <view class="card" wx:elif="{{detail.signType === 'code'}}">
       <view class="section-title">签到码签到</view>
       <input
@@ -87,6 +106,18 @@
         disabled="{{submitting || detail.signed || detail.needCaptcha || detail.unsupportedReason}}"
       >
         扫码并签到
+      </button>
+    </view>
+
+    <view class="card" wx:elif="{{detail.signType === 'pattern'}}">
+      <view class="section-title">手势签到</view>
+      <button
+        class="primary full"
+        bindtap="submitPattern"
+        loading="{{submitting}}"
+        disabled="{{submitting || detail.signed || detail.needCaptcha || detail.unsupportedReason}}"
+      >
+        发起自动手势破解
       </button>
     </view>
 

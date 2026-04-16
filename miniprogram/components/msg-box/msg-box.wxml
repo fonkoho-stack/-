@@ -102,28 +102,64 @@
         <!-- 通知列表 -->
         <view class="msg-section">
           <text class="section-label">通知列表</text>
-          <block wx:if="{{notifications.length > 0}}">
-            <view class="notification-item {{item.isSign ? 'is-sign' : ''}}" 
-                  wx:for="{{notifications}}" wx:key="id" 
-                  bindtap="openNotification" data-item="{{item}}">
-              <view class="noti-icon-box">
-                <text class="noti-icon">{{item.icon}}</text>
-              </view>
-              <view class="noti-body">
-                <view class="noti-header">
-                  <text class="noti-title">{{item.title}}</text>
-                  <text class="noti-time">{{item.timeText || ''}}</text>
+          <view class="notification-group">
+            <view class="notification-group-header">
+              <text class="notification-group-title">待处理签到</text>
+              <text class="notification-group-count">{{activeNotifications.length}}</text>
+            </view>
+            <block wx:if="{{activeNotifications.length > 0}}">
+              <view class="notification-item {{item.isSign ? 'is-sign' : ''}}"
+                    wx:for="{{activeNotifications}}" wx:key="id"
+                    bindtap="openNotification" data-item="{{item}}">
+                <view class="noti-icon-box">
+                  <text class="noti-icon">{{item.icon}}</text>
                 </view>
-                <text class="noti-desc">{{item.desc}}</text>
+                <view class="noti-body">
+                  <view class="noti-header">
+                    <view class="noti-title-row">
+                      <text class="noti-title">{{item.title}}</text>
+                      <text class="noti-status-tag {{item.statusClass}}">{{item.statusText}}</text>
+                    </view>
+                    <text class="noti-time">{{item.timeText || ''}}</text>
+                  </view>
+                  <text class="noti-desc">{{item.desc}}</text>
+                </view>
+                <view class="notif-action-tag" wx:if="{{item.isSign && item.canHandle}}">{{item.actionText}}</view>
               </view>
-              <view class="notif-action-tag" wx:if="{{item.isSign}}">处理 ›</view>
+            </block>
+            <view class="msg-card is-empty-state" wx:else>
+              <text class="empty-msg">暂无待处理签到</text>
             </view>
-          </block>
-          <block wx:else>
-            <view class="msg-card is-empty-state">
-              <text class="empty-msg">暂时没有新通知</text>
+          </view>
+
+          <view class="notification-group">
+            <view class="notification-group-header">
+              <text class="notification-group-title">最近签到记录</text>
+              <text class="notification-group-count">{{historyNotifications.length}}</text>
             </view>
-          </block>
+            <block wx:if="{{historyNotifications.length > 0}}">
+              <view class="notification-item is-history {{item.isSign ? 'is-sign' : ''}}"
+                    wx:for="{{historyNotifications}}" wx:key="id"
+                    bindtap="openNotification" data-item="{{item}}">
+                <view class="noti-icon-box">
+                  <text class="noti-icon">{{item.icon}}</text>
+                </view>
+                <view class="noti-body">
+                  <view class="noti-header">
+                    <view class="noti-title-row">
+                      <text class="noti-title">{{item.title}}</text>
+                      <text class="noti-status-tag {{item.statusClass}}">{{item.statusText}}</text>
+                    </view>
+                    <text class="noti-time">{{item.timeText || ''}}</text>
+                  </view>
+                  <text class="noti-desc">{{item.desc}}</text>
+                </view>
+              </view>
+            </block>
+            <view class="msg-card is-empty-state" wx:else>
+              <text class="empty-msg">暂无历史签到记录</text>
+            </view>
+          </view>
         </view>
 
         <!-- 偏好设置 -->

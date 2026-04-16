@@ -48,6 +48,7 @@ function isEventInWeek(event, week) {
 function emptySummary() {
     return {
         alerts: [],
+        historyAlerts: [],
         unreadCount: 0,
         readyCount: 0,
         limitedCount: 0,
@@ -57,6 +58,112 @@ function emptySummary() {
 
 function formatAlertTime(value) {
     return value ? formatTimeText(value) : '';
+}
+
+function resolveLeadMinutes(settings, fallback = 15) {
+    if (!settings || typeof settings !== 'object') {
+        return fallback;
+    }
+    const raw = settings.leadMinutes !== undefined ? settings.leadMinutes : settings.lead_minutes;
+    const numeric = Number(raw);
+    if (!Number.isFinite(numeric)) {
+        return fallback;
+    }
+    return Math.max(5, Math.min(60, Math.floor(numeric)));
+}
+
+function resolveLeadIndex(leadOptions, settings, fallback = 2) {
+    if (!settings || typeof settings !== 'object') {
+        return fallback;
+    }
+    const rawIndex = Number(settings.leadIndex);
+    if (Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex < leadOptions.length) {
+        return rawIndex;
+    }
+    const leadMinutes = resolveLeadMinutes(settings, NaN);
+    if (Number.isFinite(leadMinutes)) {
+        const mappedIndex = leadOptions.findIndex((item) => Number(item.value) === leadMinutes);
+        if (mappedIndex >= 0) {
+            return mappedIndex;
+        }
+    }
+    return fallback;
+}
+
+function buildAlertStatusText(alert) {
+    const status = String(alert && alert.status || '');
+    if (status === 'signed') {
+        return '已签到';
+    }
+    if (status === 'closed') {
+        return '已结束';
+    }
+    if (status === 'limited') {
+        return '受限';
+    }
+    return '待处理';
+}
+
+function buildAlertStatusClass(alert) {
+    const status = String(alert && alert.status || '');
+    if (status === 'signed') {
+        return 'is-signed';
+    }
+    if (status === 'closed') {
+        return 'is-closed';
+    }
+    if (status === 'limited') {
+        return 'is-limited';
+    }
+    return 'is-ready';
+}
+
+function toNotificationItem(item, historical = false) {
+    const statusText = buildAlertStatusText(item);
+    const detailText = item.activityName || item.helperText || statusText;
+    const canHandle = !historical && !!item.isActive && item.canOpen !== false;
+    return {
+        ...item,
+        id: item.id || `${item.activeId || 'alert'}_${historical ? 'history' : 'active'}`,
+        isSign: true,
+        isHistorical: historical,
+        canHandle,
+        icon: historical ? '记录' : '签到',
+        title: item.courseName || (historical ? '签到记录' : '新的签到'),
+        desc: historical ? `${statusText} | ${detailText}` : detailText,
+        timeText: formatAlertTime(item.startTime || item.detectedAt),
+        statusText,
+        statusClass: buildAlertStatusClass(item),
+        actionText: canHandle ? '处理 >' : '',
+    };
+}
+
+function buildNotificationBuckets(summary, activeLimit = 4, historyLimit = 8) {
+    const normalized = summary || emptySummary();
+    const activeAlerts = (normalized.alerts || []).map((item) => toNotificationItem(item, false));
+    const seenIds = {};
+    activeAlerts.forEach((item) => {
+        const key = String(item.id || item.activeId || '');
+        if (key) {
+            seenIds[key] = true;
+        }
+    });
+    const historyAlerts = (normalized.historyAlerts || [])
+        .filter((item) => {
+            const key = String(item.id || item.activeId || '');
+            if (!key) {
+                return true;
+            }
+            return !seenIds[key];
+        })
+        .map((item) => toNotificationItem(item, true));
+    const active = activeAlerts.slice(0, Math.max(0, activeLimit));
+    const history = historyAlerts.slice(0, Math.max(0, historyLimit));
+    return {
+        active,
+        history,
+        all: [...active, ...history],
+    };
 }
 
 Component({
@@ -87,6 +194,8 @@ Component({
         assistUnreadCount: 0,
         assistLastUpdated: '',
         notifications: [],
+        activeNotifications: [],
+        historyNotifications: [],
         scrollTarget: '', // 用于自动定位的节点 ID
         isAnimating: false,
         // --- 设置中心数据 ---
@@ -126,6 +235,10 @@ Component({
                 // 启动异步任务
                 this.refreshAssistAlerts(true);
                 this.fetchSubscriptionCount();
+                this.syncLatestScheduleFromCloud().finally(() => {
+                    this.applyScheduleStateFromStorage();
+                    this.fetchSubscriptionCount();
+                });
             }, 50);
 
             this._stateWatcher = (nextState) => {
@@ -190,7 +303,9 @@ Component({
     pageLifetimes: {
         show() {
             this.restoreFloatState();
-            this.updateDateAndCourse();
+            this.syncLatestScheduleFromCloud().finally(() => {
+                this.applyScheduleStateFromStorage();
+            });
             this.loadAssistAlertsFromCache();
             this.refreshAssistAlerts(true);
             
@@ -209,6 +324,65 @@ Component({
     },
 
     methods: {
+        async syncLatestScheduleFromCloud() {
+            try {
+                const res = await wx.cloud.callFunction({
+                    name: 'get_schedule',
+                    data: { action: 'latest' }
+                });
+                const schedule = res && res.result && res.result.success ? res.result.data : null;
+                if (!schedule || !Array.isArray(schedule.events)) {
+                    return false;
+                }
+
+                const scheduleId = schedule._id || '';
+                app.globalData.scheduleData = schedule.events;
+                app.globalData.scheduleId = scheduleId;
+                wx.setStorageSync('schedule_data', schedule.events);
+                if (scheduleId) {
+                    wx.setStorageSync('schedule_id', scheduleId);
+                }
+
+                if (schedule.reminder_settings && typeof schedule.reminder_settings === 'object') {
+                    wx.setStorageSync('reminder_settings', schedule.reminder_settings);
+                    if (schedule.reminder_settings.semesterStart) {
+                        wx.setStorageSync('semester_start', schedule.reminder_settings.semesterStart);
+                    }
+                }
+                return true;
+            } catch (error) {
+                console.warn('msg-box syncLatestScheduleFromCloud failed:', error);
+                return false;
+            }
+        },
+
+        applyScheduleStateFromStorage() {
+            const settings = wx.getStorageSync('reminder_settings');
+            const semesterStart = (settings && settings.semesterStart)
+                || wx.getStorageSync('semester_start')
+                || this.data.semesterStart
+                || '2026-03-02';
+            const nextState = {
+                semesterStart,
+            };
+
+            if (settings && typeof settings === 'object') {
+                nextState.reminderEnabled = settings.reminderEnabled === undefined ? false : !!settings.reminderEnabled;
+                nextState.leadIndex = resolveLeadIndex(this.data.leadOptions, settings);
+            }
+
+            const semesterStartDate = new Date(`${semesterStart}T00:00:00`);
+            const now = new Date();
+            const diffDays = Math.floor((now.getTime() - semesterStartDate.getTime()) / (24 * 3600 * 1000));
+            const currentWeek = Math.max(1, Math.min(25, Math.floor(diffDays / 7) + 1));
+            const nextCourseData = this.calculateNextCourse(currentWeek);
+            nextState.currentWeek = currentWeek;
+            nextState.nextCourse = nextCourseData.nextCourse;
+            nextState.hasSchedule = nextCourseData.hasSchedule;
+            nextState.isTodayFree = nextCourseData.isTodayFree;
+            this.setData(nextState);
+        },
+
         // 提取所有初始同步数据，用于 attached 批处理
         getInitialSyncState() {
             const state = {};
@@ -216,8 +390,8 @@ Component({
             // 1. 设置
             const settings = wx.getStorageSync('reminder_settings');
             if (settings) {
-                state.reminderEnabled = settings.reminderEnabled;
-                state.leadIndex = settings.leadIndex || 2;
+                state.reminderEnabled = settings.reminderEnabled === undefined ? false : !!settings.reminderEnabled;
+                state.leadIndex = resolveLeadIndex(this.data.leadOptions, settings);
                 state.semesterStart = settings.semesterStart || '2026-03-02';
             }
             
@@ -241,16 +415,10 @@ Component({
             
             // 4. 签到缓存
             const summary = getAlertCache() || emptySummary();
-            const alerts = (summary.alerts || []).map((item) => ({
-                ...item,
-                id: item.activeId,
-                isSign: true,
-                icon: '签到',
-                title: item.courseName || '新的签到',
-                desc: item.activityName || item.helperText,
-                timeText: formatAlertTime(item.startTime || item.detectedAt),
-            }));
-            state.notifications = alerts;
+            const buckets = buildNotificationBuckets(summary);
+            state.notifications = buckets.all;
+            state.activeNotifications = buckets.active;
+            state.historyNotifications = buckets.history;
             state.assistUnreadCount = summary.unreadCount || 0;
             state.assistLastUpdated = summary.scannedAt ? formatAlertTime(summary.scannedAt) : '';
             state.hasNewMsg = (summary.unreadCount || 0) > 0;
@@ -382,13 +550,34 @@ Component({
         },
 
         saveSettings() {
+            const safeLeadIndex = Number.isInteger(this.data.leadIndex)
+                && this.data.leadIndex >= 0
+                && this.data.leadIndex < this.data.leadOptions.length
+                ? this.data.leadIndex
+                : 2;
             const settings = {
                 reminderEnabled: this.data.reminderEnabled,
-                leadIndex: this.data.leadIndex,
-                leadMinutes: this.data.leadOptions[this.data.leadIndex].value,
+                leadIndex: safeLeadIndex,
+                leadMinutes: this.data.leadOptions[safeLeadIndex].value,
                 semesterStart: this.data.semesterStart,
             };
             wx.setStorageSync('reminder_settings', settings);
+            wx.setStorageSync('semester_start', settings.semesterStart);
+
+            const sid = app.globalData.scheduleId || wx.getStorageSync('schedule_id');
+            if (!sid) {
+                return;
+            }
+            wx.cloud.callFunction({
+                name: 'get_schedule',
+                data: {
+                    action: 'update_reminder',
+                    schedule_id: sid,
+                    reminder_settings: settings,
+                },
+            }).catch((err) => {
+                console.error('msg-box 同步提醒设置失败', err);
+            });
         },
 
         changeSemesterStart(e) {
@@ -400,7 +589,7 @@ Component({
         },
 
         changeLeadTime(e) {
-            const index = parseInt(e.detail.value);
+            const index = parseInt(e.detail.value, 10);
             this.setData({ leadIndex: index });
             this.saveSettings();
         },
@@ -415,7 +604,7 @@ Component({
             const currentDay = now.getDay() === 0 ? 7 : now.getDay();
             const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
             const settings = wx.getStorageSync('reminder_settings') || { leadMinutes: 15 };
-            const leadMinutes = settings.leadMinutes || 15;
+            const leadMinutes = resolveLeadMinutes(settings, 15);
 
             let nextCourse = null;
             let minDiff = Infinity;
@@ -492,19 +681,13 @@ Component({
 
         applyAssistSummary(summary) {
             const normalized = summary || emptySummary();
-            const alerts = (normalized.alerts || []).map((item) => ({
-                ...item,
-                id: item.activeId,
-                isSign: true, // 标识为签到类型
-                icon: '签到',
-                title: item.courseName || '新的签到',
-                desc: item.activityName || item.helperText,
-                timeText: formatAlertTime(item.startTime || item.detectedAt),
-            }));
+            const buckets = buildNotificationBuckets(normalized);
             const unreadCount = normalized.unreadCount || 0;
             const assistLastUpdated = normalized.scannedAt ? formatAlertTime(normalized.scannedAt) : '';
             this.setData({
-                notifications: alerts,
+                notifications: buckets.all,
+                activeNotifications: buckets.active,
+                historyNotifications: buckets.history,
                 assistUnreadCount: unreadCount,
                 assistLastUpdated,
                 hasNewMsg: unreadCount > 0,
@@ -639,7 +822,7 @@ Component({
 
         openNotification(event) {
             const item = event.currentTarget.dataset.item;
-            if (item && item.isSign) {
+            if (item && item.isSign && item.canHandle) {
                 this.openSignAlert(item);
             }
         },

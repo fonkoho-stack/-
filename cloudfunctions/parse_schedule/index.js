@@ -9,6 +9,102 @@ const db = cloud.database();
 
 // ========== 工具函数 ==========
 
+function toTimestamp(value) {
+    if (!value) {
+        return 0;
+    }
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : 0;
+    }
+    if (typeof value === 'string') {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (value instanceof Date) {
+        return Number.isFinite(value.getTime()) ? value.getTime() : 0;
+    }
+    if (typeof value === 'object') {
+        if (typeof value.$date === 'string') {
+            const parsed = Date.parse(value.$date);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+        if (typeof value.seconds === 'number') {
+            return value.seconds * 1000;
+        }
+        if (typeof value.toDate === 'function') {
+            try {
+                const dateValue = value.toDate();
+                if (dateValue instanceof Date) {
+                    return dateValue.getTime();
+                }
+            } catch (error) {
+                return 0;
+            }
+        }
+    }
+    return 0;
+}
+
+function pickLatestScheduleRecord(rows) {
+    const list = Array.isArray(rows) ? [...rows] : [];
+    if (!list.length) {
+        return null;
+    }
+    list.sort((left, right) => {
+        const leftCreatedTs = toTimestamp(left.created_at);
+        const rightCreatedTs = toTimestamp(right.created_at);
+        if (rightCreatedTs !== leftCreatedTs) {
+            return rightCreatedTs - leftCreatedTs;
+        }
+        const leftUpdatedTs = toTimestamp(left.updated_at || left.created_at);
+        const rightUpdatedTs = toTimestamp(right.updated_at || right.created_at);
+        return rightUpdatedTs - leftUpdatedTs;
+    });
+    return list[0] || null;
+}
+
+async function queryLatestScheduleRecord(openid, orderField) {
+    const res = await db.collection('schedules')
+        .where({ openid })
+        .orderBy(orderField, 'desc')
+        .limit(1)
+        .get();
+    const rows = Array.isArray(res.data) ? res.data : [];
+    return rows[0] || null;
+}
+
+async function getLatestScheduleRecord(openid) {
+    let latest = null;
+
+    try {
+        latest = await queryLatestScheduleRecord(openid, 'created_at');
+    } catch (createdAtError) {
+        console.warn('parse_schedule getLatestScheduleRecord(created_at) failed:', openid, createdAtError);
+    }
+
+    if (!latest) {
+        try {
+            latest = await queryLatestScheduleRecord(openid, 'updated_at');
+        } catch (updatedAtError) {
+            console.warn('parse_schedule getLatestScheduleRecord(updated_at) failed:', openid, updatedAtError);
+        }
+    }
+
+    if (!latest) {
+        try {
+            const res = await db.collection('schedules')
+                .where({ openid })
+                .limit(100)
+                .get();
+            latest = pickLatestScheduleRecord(res.data);
+        } catch (fallbackError) {
+            console.warn('parse_schedule getLatestScheduleRecord(fallback) failed:', openid, fallbackError);
+        }
+    }
+
+    return latest;
+}
+
 function uuid() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const r = Math.random() * 16 | 0;
@@ -509,16 +605,31 @@ exports.main = async (event, context) => {
         // 4. 入库
         const wxContext = cloud.getWXContext();
         const openid = wxContext.OPENID;
+        const latestSchedule = await getLatestScheduleRecord(openid);
+        let scheduleId = '';
 
-        const scheduleDoc = {
-            openid,
-            events,
-            version: 1,
-            subscription_count: 0,
-            created_at: db.serverDate(),
-            updated_at: db.serverDate()
-        };
-        const addRes = await db.collection('schedules').add({ data: scheduleDoc });
+        if (latestSchedule && latestSchedule._id) {
+            const nextVersion = Math.max(1, Number(latestSchedule.version || 1) + 1);
+            await db.collection('schedules').doc(latestSchedule._id).update({
+                data: {
+                    events,
+                    version: nextVersion,
+                    updated_at: db.serverDate()
+                }
+            });
+            scheduleId = latestSchedule._id;
+        } else {
+            const scheduleDoc = {
+                openid,
+                events,
+                version: 1,
+                subscription_count: 0,
+                created_at: db.serverDate(),
+                updated_at: db.serverDate()
+            };
+            const addRes = await db.collection('schedules').add({ data: scheduleDoc });
+            scheduleId = addRes._id;
+        }
 
         // 5. 阅后即焚
         cloud.deleteFile({ fileList: [fileID] }).catch(() => { });
@@ -526,7 +637,7 @@ exports.main = async (event, context) => {
         return {
             success: true,
             data: {
-                schedule_id: addRes._id,
+                schedule_id: scheduleId,
                 events,
                 events_count: events.length,
                 warnings: [],

@@ -16,6 +16,18 @@ const PERIOD_MAP = {
     12: { start: '22:15', end: '23:00' }
 };
 
+function resolveLeadMinutes(settings, fallback = 15) {
+    if (!settings || typeof settings !== 'object') {
+        return fallback;
+    }
+    const raw = settings.leadMinutes !== undefined ? settings.leadMinutes : settings.lead_minutes;
+    const numeric = Number(raw);
+    if (!Number.isFinite(numeric)) {
+        return fallback;
+    }
+    return Math.max(5, Math.min(60, Math.floor(numeric)));
+}
+
 Page({
     data: {
         viewMode: 'today',
@@ -38,15 +50,51 @@ Page({
         if (savedViewMode) {
             this.setData({ viewMode: savedViewMode });
         }
-        this.loadScheduleData();
+        this.syncLatestScheduleFromCloud().finally(() => {
+            this.loadScheduleData();
+        });
     },
 
     onShow() {
-        if (app.globalData.subscriptionCount !== undefined) {
-            this.setData({ subscriptionCount: app.globalData.subscriptionCount });
+        this.syncLatestScheduleFromCloud().finally(() => {
+            if (app.globalData.subscriptionCount !== undefined) {
+                this.setData({ subscriptionCount: app.globalData.subscriptionCount });
+            }
+            this.fetchSubscriptionCount();
+            this.loadScheduleData();
+        });
+    },
+
+    async syncLatestScheduleFromCloud() {
+        try {
+            const res = await wx.cloud.callFunction({
+                name: 'get_schedule',
+                data: { action: 'latest' }
+            });
+            const schedule = res && res.result && res.result.success ? res.result.data : null;
+            if (!schedule || !Array.isArray(schedule.events)) {
+                return false;
+            }
+
+            const scheduleId = schedule._id || '';
+            app.globalData.scheduleData = schedule.events;
+            app.globalData.scheduleId = scheduleId;
+            wx.setStorageSync('schedule_data', schedule.events);
+            if (scheduleId) {
+                wx.setStorageSync('schedule_id', scheduleId);
+            }
+
+            if (schedule.reminder_settings && typeof schedule.reminder_settings === 'object') {
+                wx.setStorageSync('reminder_settings', schedule.reminder_settings);
+                if (schedule.reminder_settings.semesterStart) {
+                    wx.setStorageSync('semester_start', schedule.reminder_settings.semesterStart);
+                }
+            }
+            return true;
+        } catch (error) {
+            console.warn('syncLatestScheduleFromCloud failed:', error);
+            return false;
         }
-        this.fetchSubscriptionCount();
-        this.loadScheduleData();
     },
 
     switchView(e) {
@@ -99,7 +147,7 @@ Page({
         const realWeek = this.data.realWeek;   // 今日视图用
         const now = new Date();
         const settings = wx.getStorageSync('reminder_settings') || { leadMinutes: 15 };
-        const leadMins = settings.leadMinutes || 15;
+        const leadMins = resolveLeadMinutes(settings, 15);
 
         const enrichedEvents = allEvents.map((ev, idx) => {
             const startStr = PERIOD_MAP[ev.time.period_start]?.start || '';

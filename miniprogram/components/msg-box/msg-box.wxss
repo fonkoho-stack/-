@@ -159,6 +159,40 @@
 }
 
 /* --- 通知列表整合样式 --- */
+.notification-group {
+  margin-bottom: 28rpx;
+}
+
+.notification-group:last-child {
+  margin-bottom: 0;
+}
+
+.notification-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18rpx;
+  padding: 0 6rpx;
+}
+
+.notification-group-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.notification-group-count {
+  min-width: 36rpx;
+  height: 36rpx;
+  padding: 0 12rpx;
+  border-radius: 999rpx;
+  background: rgba(60, 60, 67, 0.08);
+  color: var(--text-sub);
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 36rpx;
+  text-align: center;
+}
 .notification-item {
   background: #fff;
   border-radius: 36rpx;
@@ -202,6 +236,16 @@
   color: var(--brand-green);
 }
 
+
+.notification-item.is-history {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(60, 60, 67, 0.08);
+}
+
+.notification-item.is-history .noti-icon-box {
+  background: rgba(60, 60, 67, 0.08);
+}
+
 .noti-body {
   flex: 1;
   min-width: 0;
@@ -211,13 +255,51 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 14rpx;
   margin-bottom: 6rpx;
+}
+
+.noti-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .noti-title {
   font-size: 30rpx;
   font-weight: 800;
   color: var(--text-main);
+}
+
+.noti-status-tag {
+  flex-shrink: 0;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.noti-status-tag.is-ready {
+  color: #0a7f36;
+  background: rgba(52, 199, 89, 0.14);
+}
+
+.noti-status-tag.is-limited {
+  color: #b26a00;
+  background: rgba(255, 159, 10, 0.16);
+}
+
+.noti-status-tag.is-signed {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.noti-status-tag.is-closed {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.12);
 }
 
 .noti-time {

@@ -1,6 +1,29 @@
 // pages/settings/settings.js
 const app = getApp();
 
+function resolveLeadIndex(leadOptions, settings) {
+    const fallbackIndex = 2;
+    if (!settings || typeof settings !== 'object') {
+        return fallbackIndex;
+    }
+
+    const rawIndex = Number(settings.leadIndex);
+    if (Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex < leadOptions.length) {
+        return rawIndex;
+    }
+
+    const rawMinutes = settings.leadMinutes !== undefined ? settings.leadMinutes : settings.lead_minutes;
+    const leadMinutes = Number(rawMinutes);
+    if (Number.isFinite(leadMinutes)) {
+        const mappedIndex = leadOptions.findIndex((item) => Number(item.value) === leadMinutes);
+        if (mappedIndex >= 0) {
+            return mappedIndex;
+        }
+    }
+
+    return fallbackIndex;
+}
+
 Page({
     data: {
         reminderEnabled: false,
@@ -21,18 +44,58 @@ Page({
     onLoad() {
         const settings = wx.getStorageSync('reminder_settings');
         if (settings) {
+            const leadIndex = resolveLeadIndex(this.data.leadOptions, settings);
             this.setData({
-                reminderEnabled: settings.reminderEnabled,
-                leadIndex: settings.leadIndex || 2,
+                reminderEnabled: settings.reminderEnabled === undefined ? false : !!settings.reminderEnabled,
+                leadIndex,
                 semesterStart: settings.semesterStart || '2026-03-02'
             });
         }
+        this.syncLatestScheduleFromCloud();
     },
 
     onShow() {
-        this.fetchSubscriptionCount();
-        if (app.globalData.subscriptionCount !== undefined) {
-            this.setData({ subscriptionCount: app.globalData.subscriptionCount });
+        this.syncLatestScheduleFromCloud().finally(() => {
+            this.fetchSubscriptionCount();
+            if (app.globalData.subscriptionCount !== undefined) {
+                this.setData({ subscriptionCount: app.globalData.subscriptionCount });
+            }
+        });
+    },
+
+    async syncLatestScheduleFromCloud() {
+        try {
+            const res = await wx.cloud.callFunction({
+                name: 'get_schedule',
+                data: { action: 'latest' }
+            });
+            const schedule = res && res.result && res.result.success ? res.result.data : null;
+            if (!schedule) {
+                return false;
+            }
+
+            const scheduleId = schedule._id || '';
+            if (scheduleId) {
+                app.globalData.scheduleId = scheduleId;
+                wx.setStorageSync('schedule_id', scheduleId);
+            }
+
+            if (schedule.reminder_settings && typeof schedule.reminder_settings === 'object') {
+                wx.setStorageSync('reminder_settings', schedule.reminder_settings);
+                if (schedule.reminder_settings.semesterStart) {
+                    wx.setStorageSync('semester_start', schedule.reminder_settings.semesterStart);
+                }
+                const leadIndex = resolveLeadIndex(this.data.leadOptions, schedule.reminder_settings);
+                this.setData({
+                    reminderEnabled: schedule.reminder_settings.reminderEnabled === undefined ? false : !!schedule.reminder_settings.reminderEnabled,
+                    leadIndex,
+                    semesterStart: schedule.reminder_settings.semesterStart || '2026-03-02'
+                });
+            }
+            return true;
+        } catch (error) {
+            console.error('syncLatestScheduleFromCloud failed', error);
+            return false;
         }
     },
 
@@ -130,7 +193,7 @@ Page({
     },
 
     changeLeadTime(e) {
-        const index = parseInt(e.detail.value);
+        const index = parseInt(e.detail.value, 10);
         this.setData({ leadIndex: index });
         this.saveSettings();
     },
@@ -142,15 +205,21 @@ Page({
 
     saveSettings() {
         const sid = app.globalData.scheduleId || wx.getStorageSync('schedule_id');
+        const safeLeadIndex = Number.isInteger(this.data.leadIndex)
+            && this.data.leadIndex >= 0
+            && this.data.leadIndex < this.data.leadOptions.length
+            ? this.data.leadIndex
+            : 2;
         const settings = {
             reminderEnabled: this.data.reminderEnabled,
-            leadIndex: this.data.leadIndex,
-            leadMinutes: this.data.leadOptions[this.data.leadIndex].value,
+            leadIndex: safeLeadIndex,
+            leadMinutes: this.data.leadOptions[safeLeadIndex].value,
             semesterStart: this.data.semesterStart
         };
         
         // 1. 本地存储
         wx.setStorageSync('reminder_settings', settings);
+        wx.setStorageSync('semester_start', settings.semesterStart);
         
         // 2. 云端同步（如果已导入课表）
         if (sid) {
