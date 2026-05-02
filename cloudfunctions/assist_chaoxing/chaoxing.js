@@ -532,6 +532,20 @@ async function getActivityDetail(session, { activeId, signType }) {
     const attendData = attendInfo && attendInfo.result === 1 ? attendInfo.data || {} : {};
     const signTypeMeta = Object.values(SIGN_TYPE_MAP).find((item) => item.key === signType);
 
+    if (signType === 'location') {
+        const activeLocationProbe = Object.fromEntries(
+            Object.entries(data).filter(([key]) => /location|address|lat|lng|lon|gps|point|map|geo/i.test(key))
+        );
+        const attendLocationProbe = Object.fromEntries(
+            Object.entries(attendData).filter(([key]) => /location|address|lat|lng|lon|gps|point|map|geo/i.test(key))
+        );
+        console.log('[LocationDetailProbe]', JSON.stringify({
+            activeId: String(activeId || ''),
+            activeLocationProbe,
+            attendLocationProbe,
+        }));
+    }
+
     const detail = {
         activeId: String(activeId),
         signType: signType || '',
